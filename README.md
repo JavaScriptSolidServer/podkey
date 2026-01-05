@@ -2,7 +2,7 @@
 
 > Browser extension for **did:nostr** and **Solid** authentication
 
-[![Version](https://img.shields.io/badge/version-0.0.4-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
+[![Version](https://img.shields.io/badge/version-0.0.5-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)

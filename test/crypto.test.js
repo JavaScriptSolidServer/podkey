@@ -4,10 +4,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { 
-  generateKeypair, 
-  getPublicKey, 
-  signEvent, 
+import {
+  generateKeypair,
+  getPublicKey,
+  signEvent,
   verifySignature,
   getEventHash,
   isValidPublicKey
@@ -17,7 +17,7 @@ describe('Crypto Functions', () => {
   describe('generateKeypair', () => {
     it('should generate a valid keypair', async () => {
       const keypair = await generateKeypair();
-      
+
       assert(keypair, 'Keypair should be returned');
       assert(keypair.privateKey, 'Private key should exist');
       assert(keypair.publicKey, 'Public key should exist');
@@ -30,7 +30,7 @@ describe('Crypto Functions', () => {
     it('should generate different keypairs each time', async () => {
       const keypair1 = await generateKeypair();
       const keypair2 = await generateKeypair();
-      
+
       assert.notStrictEqual(keypair1.privateKey, keypair2.privateKey, 'Private keys should differ');
       assert.notStrictEqual(keypair1.publicKey, keypair2.publicKey, 'Public keys should differ');
     });
@@ -40,7 +40,7 @@ describe('Crypto Functions', () => {
     it('should derive public key from private key', async () => {
       const keypair = await generateKeypair();
       const derivedPublicKey = getPublicKey(keypair.privateKey);
-      
+
       assert.strictEqual(derivedPublicKey, keypair.publicKey, 'Derived public key should match');
       assert.strictEqual(derivedPublicKey.length, 64, 'Public key should be 64 chars');
     });
@@ -63,7 +63,7 @@ describe('Crypto Functions', () => {
       };
 
       const signed = await signEvent(event, keypair.privateKey);
-      
+
       assert(signed.id, 'Event should have id');
       assert(signed.pubkey, 'Event should have pubkey');
       assert(signed.sig, 'Event should have signature');
@@ -84,7 +84,7 @@ describe('Crypto Functions', () => {
 
       const signed = await signEvent(event, keypair.privateKey);
       const hashWithPubkey = getEventHash({ ...event, pubkey: keypair.publicKey });
-      
+
       assert.strictEqual(signed.id, hashWithPubkey, 'Event ID should match hash with pubkey');
     });
   });
@@ -101,7 +101,7 @@ describe('Crypto Functions', () => {
 
       const signed = await signEvent(event, keypair.privateKey);
       const isValid = await verifySignature(signed);
-      
+
       assert.strictEqual(isValid, true, 'Signature should be valid');
     });
 
@@ -134,7 +134,7 @@ describe('Crypto Functions', () => {
 
       const hash1 = getEventHash(event);
       const hash2 = getEventHash(event);
-      
+
       assert.strictEqual(hash1, hash2, 'Hashes should be consistent');
       assert.strictEqual(hash1.length, 64, 'Hash should be 64 chars');
     });
@@ -147,7 +147,7 @@ describe('Crypto Functions', () => {
         content: 'Test',
         pubkey: 'a'.repeat(64)
       };
-      
+
       const event2 = {
         ...event1,
         pubkey: 'b'.repeat(64)
@@ -155,7 +155,7 @@ describe('Crypto Functions', () => {
 
       const hash1 = getEventHash(event1);
       const hash2 = getEventHash(event2);
-      
+
       assert.notStrictEqual(hash1, hash2, 'Different pubkeys should produce different hashes');
     });
   });

@@ -64,10 +64,10 @@ describe('Storage Functions', () => {
       clearStorage();
       const privateKey = 'a'.repeat(64);
       const publicKey = 'b'.repeat(64);
-      
+
       await storeKeypair(privateKey, publicKey);
       const retrieved = await getKeypair();
-      
+
       assert(retrieved, 'Keypair should be retrieved');
       assert.strictEqual(retrieved.privateKey, privateKey);
       assert.strictEqual(retrieved.publicKey, publicKey);
@@ -98,7 +98,7 @@ describe('Storage Functions', () => {
       clearStorage();
       await storeKeypair('a'.repeat(64), 'b'.repeat(64));
       assert.strictEqual(await hasKeypair(), true);
-      
+
       await deleteKeypair();
       assert.strictEqual(await hasKeypair(), false);
     });
@@ -108,7 +108,7 @@ describe('Storage Functions', () => {
     it('should add and check trusted origin', async () => {
       clearStorage();
       const origin = 'https://example.com';
-      
+
       assert.strictEqual(await isTrustedOrigin(origin), false);
       await addTrustedOrigin(origin);
       assert.strictEqual(await isTrustedOrigin(origin), true);
@@ -126,7 +126,7 @@ describe('Storage Functions', () => {
       clearStorage();
       await setAutoSign(false);
       assert.strictEqual(await getAutoSign(), false);
-      
+
       await setAutoSign(true);
       assert.strictEqual(await getAutoSign(), true);
     });

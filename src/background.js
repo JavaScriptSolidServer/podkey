@@ -172,11 +172,11 @@ async function handleGenerateKeypair () {
   try {
     console.log('[Podkey] Starting keypair generation...');
     const keypair = await generateKeypair();
-    console.log('[Podkey] Keypair generated:', { 
-      privateKeyLength: keypair.privateKey.length, 
-      publicKeyLength: keypair.publicKey.length 
+    console.log('[Podkey] Keypair generated:', {
+      privateKeyLength: keypair.privateKey.length,
+      publicKeyLength: keypair.publicKey.length
     });
-    
+
     await storeKeypair(keypair.privateKey, keypair.publicKey);
     console.log('[Podkey] Keypair stored');
 
@@ -184,7 +184,7 @@ async function handleGenerateKeypair () {
       publicKey: keypair.publicKey,
       did: `did:nostr:${keypair.publicKey}`
     };
-    
+
     console.log('[Podkey] Returning result:', result);
     return result;
   } catch (error) {

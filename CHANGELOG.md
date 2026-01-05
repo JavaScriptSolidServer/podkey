@@ -5,6 +5,27 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.5] - 2024-12-XX
+
+### Added
+
+- Comprehensive installation instructions on test page
+- Clear guidance for users on how to install and use the extension
+- Links to did:nostr specification throughout documentation
+
+### Changed
+
+- License changed from MIT to AGPL-3.0
+- All descriptions updated to emphasize did:nostr and Solid authentication
+- Test page now shows installation guide when extension is not detected
+- Popup UI updated to mention did:nostr and Solid
+
+### Documentation
+
+- Added did:nostr specification link (https://nostrcg.github.io/did-nostr/)
+- Updated README to clearly position Podkey as extension for did:nostr and Solid
+- Enhanced test page with better user guidance
+
 ## [0.0.4] - 2024-12-XX
 
 ### Fixed
@@ -65,5 +86,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trust management system
 - Storage abstraction layer
 
+[0.0.5]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.2...v0.0.3
