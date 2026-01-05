@@ -229,157 +229,343 @@
         <div style="text-align: center; margin-bottom: 24px">
           <h2 style="margin-bottom: 8px">📦 Install Podkey Extension</h2>
           <p style="color: #64748b; font-size: 14px">
-            Get started with <strong>did:nostr</strong> and <strong>Solid</strong> authentication
+            Get started with <strong>did:nostr</strong> and
+            <strong>Solid</strong> authentication
           </p>
         </div>
 
-        <div style="background: #f8fafc; padding: 16px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #7c3aed">
+        <div
+          style="
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border-left: 4px solid #7c3aed;
+          "
+        >
           <p style="margin-bottom: 8px; font-size: 15px">
             <strong>What is Podkey?</strong>
           </p>
           <p style="font-size: 14px; color: #475569; line-height: 1.6">
-            Podkey is a browser extension that provides <strong>NIP-07</strong> wallet functionality for the Nostr protocol. 
-            It enables seamless authentication to <strong>Solid pods</strong> using <strong>did:nostr</strong> decentralized identifiers. 
-            Your cryptographic keys stay secure in your browser, giving you full control over your identity and data.
+            Podkey is a browser extension that provides
+            <strong>NIP-07</strong> wallet functionality for the Nostr protocol.
+            It enables seamless authentication to
+            <strong>Solid pods</strong> using
+            <strong>did:nostr</strong> decentralized identifiers. Your
+            cryptographic keys stay secure in your browser, giving you full
+            control over your identity and data.
           </p>
         </div>
 
-        <div style="background: #fef3c7; padding: 12px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #fbbf24">
-          <p style="margin: 0; font-size: 13px">
-            <strong>📋 Prerequisites:</strong> You'll need <strong>Node.js</strong> (v18+) and <strong>Git</strong> installed. 
-            <a href="https://nodejs.org/" target="_blank" style="color: #7c3aed; font-weight: 600">Download Node.js</a> | 
-            <a href="https://git-scm.com/" target="_blank" style="color: #7c3aed; font-weight: 600">Download Git</a>
-          </p>
-        </div>
-
-        <h3 style="margin-bottom: 16px; font-size: 18px; color: #1e293b">Step-by-Step Installation</h3>
+        <h3 style="margin-bottom: 16px; font-size: 18px; color: #1e293b">
+          Quick Installation (Recommended)
+        </h3>
         <div style="line-height: 1.8; font-size: 14px">
-          <ol style="margin-left: 20px; margin-top: 12px; counter-reset: step-counter">
+          <ol
+            style="
+              margin-left: 20px;
+              margin-top: 12px;
+              counter-reset: step-counter;
+            "
+          >
             <li style="margin-bottom: 20px; padding-left: 8px">
-              <strong style="color: #7c3aed">Step 1: Clone the Repository</strong><br />
-              <div style="margin-top: 8px; margin-bottom: 4px">Open your terminal and run:</div>
-              <code
-                style="
-                  display: block;
-                  background: #1e293b;
-                  color: #e2e8f0;
-                  padding: 12px;
-                  border-radius: 6px;
-                  font-size: 13px;
-                  font-family: 'Courier New', monospace;
-                  margin-top: 6px;
-                  overflow-x: auto;
-                "
-              >
-                git clone https://github.com/JavaScriptSolidServer/podkey.git
-              </code>
-            </li>
-            <li style="margin-bottom: 20px; padding-left: 8px">
-              <strong style="color: #7c3aed">Step 2: Navigate and Install Dependencies</strong><br />
-              <div style="margin-top: 8px; margin-bottom: 4px">Enter the directory and install required packages:</div>
-              <code
-                style="
-                  display: block;
-                  background: #1e293b;
-                  color: #e2e8f0;
-                  padding: 12px;
-                  border-radius: 6px;
-                  font-size: 13px;
-                  font-family: 'Courier New', monospace;
-                  margin-top: 6px;
-                  overflow-x: auto;
-                "
-              >
-                cd podkey<br />
-                npm install
-              </code>
-            </li>
-            <li style="margin-bottom: 20px; padding-left: 8px">
-              <strong style="color: #7c3aed">Step 3: Build the Extension</strong><br />
-              <div style="margin-top: 8px; margin-bottom: 4px">Compile the extension for browser use:</div>
-              <code
-                style="
-                  display: block;
-                  background: #1e293b;
-                  color: #e2e8f0;
-                  padding: 12px;
-                  border-radius: 6px;
-                  font-size: 13px;
-                  font-family: 'Courier New', monospace;
-                  margin-top: 6px;
-                  overflow-x: auto;
-                "
-              >
-                npm run build
-              </code>
+              <strong style="color: #7c3aed"
+                >Step 1: Download the Extension</strong
+              ><br />
+              <div style="margin-top: 8px; margin-bottom: 4px">
+                Download the latest release from GitHub:
+              </div>
+              <div style="margin-top: 8px; margin-bottom: 8px">
+                <a
+                  href="https://github.com/JavaScriptSolidServer/podkey/releases/latest"
+                  target="_blank"
+                  style="
+                    display: inline-block;
+                    background: #7c3aed;
+                    color: white;
+                    padding: 10px 20px;
+                    border-radius: 6px;
+                    text-decoration: none;
+                    font-weight: 600;
+                    font-size: 14px;
+                  "
+                  >📦 Download Latest Release</a
+                >
+              </div>
               <div style="margin-top: 6px; font-size: 12px; color: #64748b">
-                ✓ This creates <code style="background: #f1f5f9; padding: 2px 4px; border-radius: 3px; font-size: 11px">src/background.bundle.js</code>
+                Or download the source code as a ZIP file from the
+                <a
+                  href="https://github.com/JavaScriptSolidServer/podkey"
+                  target="_blank"
+                  style="color: #7c3aed; font-weight: 600"
+                  >GitHub repository</a
+                >
+                (click the green "Code" button → "Download ZIP")
               </div>
             </li>
             <li style="margin-bottom: 20px; padding-left: 8px">
-              <strong style="color: #7c3aed">Step 4: Load Extension in Chrome/Edge</strong><br />
-              <div style="margin-top: 8px; margin-bottom: 8px">Follow these steps in your browser:</div>
-              <ul style="margin-left: 20px; margin-top: 4px; list-style-type: disc">
+              <strong style="color: #7c3aed"
+                >Step 2: Extract and Build (if needed)</strong
+              ><br />
+              <div style="margin-top: 8px; margin-bottom: 4px">
+                If you downloaded a release ZIP, extract it. If you downloaded
+                the source code, you'll need to build it:
+              </div>
+              <div
+                style="
+                  background: #fef3c7;
+                  padding: 12px;
+                  border-radius: 8px;
+                  margin-top: 8px;
+                  border: 1px solid #fbbf24;
+                "
+              >
+                <p style="margin: 0 0 8px 0; font-size: 13px">
+                  <strong>📋 Building from source requires:</strong>
+                  <a
+                    href="https://nodejs.org/"
+                    target="_blank"
+                    style="color: #7c3aed; font-weight: 600"
+                    >Node.js v18+</a
+                  >
+                </p>
+                <code
+                  style="
+                    display: block;
+                    background: #1e293b;
+                    color: #e2e8f0;
+                    padding: 10px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-family: 'Courier New', monospace;
+                    margin-top: 6px;
+                    overflow-x: auto;
+                  "
+                >
+                  cd podkey<br />
+                  npm install<br />
+                  npm run build
+                </code>
+              </div>
+            </li>
+            <li style="margin-bottom: 20px; padding-left: 8px">
+              <strong style="color: #7c3aed"
+                >Step 3: Load Extension in Chrome/Edge</strong
+              ><br />
+              <div style="margin-top: 8px; margin-bottom: 8px">
+                Follow these steps in your browser:
+              </div>
+              <ul
+                style="
+                  margin-left: 20px;
+                  margin-top: 4px;
+                  list-style-type: disc;
+                "
+              >
                 <li style="margin-bottom: 6px">
-                  Open <strong>chrome://extensions/</strong> (or <strong>edge://extensions/</strong> for Edge) in a new tab
+                  Open <strong>chrome://extensions/</strong> (or
+                  <strong>edge://extensions/</strong> for Edge) in a new tab
                 </li>
                 <li style="margin-bottom: 6px">
-                  Enable <strong>"Developer mode"</strong> using the toggle in the top-right corner
+                  Enable <strong>"Developer mode"</strong> using the toggle in
+                  the top-right corner
                 </li>
                 <li style="margin-bottom: 6px">
                   Click the <strong>"Load unpacked"</strong> button that appears
                 </li>
                 <li style="margin-bottom: 6px">
-                  Navigate to and select the <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px">podkey</code> directory 
-                  (the one containing <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px">manifest.json</code>)
+                  Navigate to and select the
+                  <code
+                    style="
+                      background: #f1f5f9;
+                      padding: 2px 6px;
+                      border-radius: 4px;
+                      font-size: 11px;
+                    "
+                    >podkey</code
+                  >
+                  directory (the one containing
+                  <code
+                    style="
+                      background: #f1f5f9;
+                      padding: 2px 6px;
+                      border-radius: 4px;
+                      font-size: 11px;
+                    "
+                    >manifest.json</code
+                  >)
                 </li>
               </ul>
             </li>
             <li style="margin-bottom: 20px; padding-left: 8px">
-              <strong style="color: #7c3aed">Step 5: Verify Installation</strong><br />
+              <strong style="color: #7c3aed">Step 4: Verify Installation</strong
+              ><br />
               <div style="margin-top: 8px">
-                <strong>Reload this page</strong> (F5 or Ctrl+R) and the extension should be detected! 
-                You'll see a green checkmark above and can start testing Podkey's features.
+                <strong>Reload this page</strong> (F5 or Ctrl+R) and the
+                extension should be detected! You'll see a green checkmark above
+                and can start testing Podkey's features.
               </div>
             </li>
           </ol>
 
-          <div style="background: #ecfdf5; padding: 16px; border-radius: 8px; margin-top: 24px; border: 1px solid #10b981">
-            <p style="margin: 0 0 8px 0; font-size: 14px">
-              <strong>✅ First Time Setup:</strong> After installation, click the Podkey extension icon in your browser toolbar 
-              to generate or import your first keypair. This creates your <strong>did:nostr</strong> identity!
+          <div
+            style="
+              background: #f1f5f9;
+              padding: 16px;
+              border-radius: 8px;
+              margin-top: 24px;
+              border: 1px solid #cbd5e1;
+            "
+          >
+            <p style="margin: 0 0 12px 0; font-size: 14px">
+              <strong>🔧 For Developers: Build from Source</strong>
+            </p>
+            <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569">
+              If you want the latest code or plan to contribute, you can clone and build from the repository:
+            </p>
+            <code
+              style="
+                display: block;
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-family: 'Courier New', monospace;
+                margin-top: 6px;
+                overflow-x: auto;
+              "
+            >
+              git clone https://github.com/JavaScriptSolidServer/podkey.git<br />
+              cd podkey<br />
+              npm install<br />
+              npm run build
+            </code>
+            <p style="margin: 8px 0 0 0; font-size: 12px; color: #64748b">
+              Then follow Step 3 above to load the extension.
             </p>
           </div>
 
-          <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin-top: 16px; border: 1px solid #fbbf24">
+          <div
+            style="
+              background: #ecfdf5;
+              padding: 16px;
+              border-radius: 8px;
+              margin-top: 16px;
+              border: 1px solid #10b981;
+            "
+          >
+            <p style="margin: 0 0 8px 0; font-size: 14px">
+              <strong>✅ First Time Setup:</strong> After installation, click
+              the Podkey extension icon in your browser toolbar to generate or
+              import your first keypair. This creates your
+              <strong>did:nostr</strong> identity!
+            </p>
+          </div>
+
+          <div
+            style="
+              background: #fef3c7;
+              padding: 16px;
+              border-radius: 8px;
+              margin-top: 16px;
+              border: 1px solid #fbbf24;
+            "
+          >
             <p style="margin: 0 0 12px 0; font-size: 14px">
               <strong>💡 Learn More:</strong>
             </p>
-            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8">
+            <ul
+              style="
+                margin: 0;
+                padding-left: 20px;
+                font-size: 13px;
+                line-height: 1.8;
+              "
+            >
               <li>
-                <a href="https://github.com/JavaScriptSolidServer/podkey" target="_blank" style="color: #7c3aed; font-weight: 600">📚 GitHub Repository</a> - Source code and documentation
+                <a
+                  href="https://github.com/JavaScriptSolidServer/podkey"
+                  target="_blank"
+                  style="color: #7c3aed; font-weight: 600"
+                  >📚 GitHub Repository</a
+                >
+                - Source code and documentation
               </li>
               <li>
-                <a href="https://nostrcg.github.io/did-nostr/" target="_blank" style="color: #7c3aed; font-weight: 600">🔗 did:nostr Specification</a> - Learn about Nostr DIDs
+                <a
+                  href="https://nostrcg.github.io/did-nostr/"
+                  target="_blank"
+                  style="color: #7c3aed; font-weight: 600"
+                  >🔗 did:nostr Specification</a
+                >
+                - Learn about Nostr DIDs
               </li>
               <li>
-                <a href="https://solidproject.org/" target="_blank" style="color: #7c3aed; font-weight: 600">🌐 Solid Project</a> - Decentralized web platform
+                <a
+                  href="https://solidproject.org/"
+                  target="_blank"
+                  style="color: #7c3aed; font-weight: 600"
+                  >🌐 Solid Project</a
+                >
+                - Decentralized web platform
               </li>
               <li>
-                <a href="https://github.com/nostr-protocol/nips/blob/master/07.md" target="_blank" style="color: #7c3aed; font-weight: 600">📖 NIP-07 Specification</a> - Nostr wallet standard
+                <a
+                  href="https://github.com/nostr-protocol/nips/blob/master/07.md"
+                  target="_blank"
+                  style="color: #7c3aed; font-weight: 600"
+                  >📖 NIP-07 Specification</a
+                >
+                - Nostr wallet standard
               </li>
             </ul>
           </div>
 
-          <div style="background: #fee2e2; padding: 16px; border-radius: 8px; margin-top: 16px; border: 1px solid #ef4444">
+          <div
+            style="
+              background: #fee2e2;
+              padding: 16px;
+              border-radius: 8px;
+              margin-top: 16px;
+              border: 1px solid #ef4444;
+            "
+          >
             <p style="margin: 0 0 8px 0; font-size: 14px">
               <strong>🔧 Troubleshooting:</strong>
             </p>
-            <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8">
-              <li><strong>Extension not detected?</strong> Make sure you reloaded this page after installation</li>
-              <li><strong>Build errors?</strong> Ensure Node.js v18+ is installed: <code style="background: #f1f5f9; padding: 2px 4px; border-radius: 3px; font-size: 11px">node --version</code></li>
-              <li><strong>Can't find "Load unpacked"?</strong> Developer mode must be enabled first</li>
-              <li><strong>Extension icon not showing?</strong> Check chrome://extensions/ to ensure it's enabled</li>
+            <ul
+              style="
+                margin: 0;
+                padding-left: 20px;
+                font-size: 13px;
+                line-height: 1.8;
+              "
+            >
+              <li>
+                <strong>Extension not detected?</strong> Make sure you reloaded
+                this page after installation
+              </li>
+              <li>
+                <strong>Build errors?</strong> Ensure Node.js v18+ is installed:
+                <code
+                  style="
+                    background: #f1f5f9;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    font-size: 11px;
+                  "
+                  >node --version</code
+                >
+              </li>
+              <li>
+                <strong>Can't find "Load unpacked"?</strong> Developer mode must
+                be enabled first
+              </li>
+              <li>
+                <strong>Extension icon not showing?</strong> Check
+                chrome://extensions/ to ensure it's enabled
+              </li>
             </ul>
           </div>
         </div>
