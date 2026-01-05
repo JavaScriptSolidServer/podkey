@@ -2,7 +2,7 @@
 
 > World-class Nostr wallet extension with Solid superpowers
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
+[![Version](https://img.shields.io/badge/version-0.0.3-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
@@ -341,4 +341,4 @@ MIT License - see [LICENSE](LICENSE) for details
 
 **Made with 🔑 by the JavaScriptSolidServer team**
 
-_Podkey v0.1.0 - Your keys, your identity, your data_
+_Podkey v0.0.3 - Your keys, your identity, your data_

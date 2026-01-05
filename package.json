@@ -1,6 +1,6 @@
 {
   "name": "podkey",
-  "version": "0.1.0",
+  "version": "0.0.3",
   "description": "World-class Nostr wallet extension with Solid superpowers - NIP-07 provider + auto-authentication",
   "main": "src/index.js",
   "type": "module",
