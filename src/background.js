@@ -324,6 +324,24 @@ function encodeNip98Header (signedEvent) {
  * @param {string|ArrayBuffer|Blob|null} body - Request body
  * @returns {Promise<string>} Authorization header value
  */
+/**
+ * Check if an origin is likely a Solid server
+ * @param {string} origin - Origin to check
+ * @returns {boolean}
+ */
+function isLikelySolidServer (origin) {
+  // Common Solid server indicators
+  const solidIndicators = [
+    'solid.social',
+    'solidcommunity.net',
+    'inrupt.net',
+    'solidweb.org',
+    '/.well-known/solid'
+  ];
+  
+  return solidIndicators.some(indicator => origin.includes(indicator));
+}
+
 async function createNip98AuthHeader (url, method, body = null) {
   try {
     // Check if we should add auth
@@ -331,8 +349,33 @@ async function createNip98AuthHeader (url, method, body = null) {
     const trusted = await isTrustedOrigin(origin);
     const autoSign = await getAutoSign();
     const keyExists = await hasKeypair();
+    const isSolid = isLikelySolidServer(origin);
 
-    if (!keyExists || !trusted || !autoSign) {
+    console.log('[Podkey] NIP-98 auth check:', {
+      url,
+      origin,
+      keyExists,
+      trusted,
+      autoSign,
+      isSolid
+    });
+
+    if (!keyExists) {
+      console.log('[Podkey] No keypair found, skipping NIP-98 auth');
+      return null;
+    }
+
+    // For Solid servers, auto-trust on first use if auto-sign is enabled
+    if (!trusted && isSolid && autoSign) {
+      console.log('[Podkey] Auto-trusting Solid server:', origin);
+      await addTrustedOrigin(origin);
+    } else if (!trusted) {
+      console.log('[Podkey] Origin not trusted, skipping NIP-98 auth');
+      return null;
+    }
+
+    if (!autoSign) {
+      console.log('[Podkey] Auto-sign disabled, skipping NIP-98 auth');
       return null;
     }
 

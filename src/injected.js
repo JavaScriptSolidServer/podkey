@@ -88,20 +88,38 @@ window.addEventListener('podkey-request', async (event) => {
 
     const response = await originalFetch(url, options);
 
-    // Handle 401 responses
+    // Handle 401 responses - retry with NIP-98 auth
     if (response.status === 401) {
+      console.log('[Podkey] 401 detected, attempting NIP-98 auth retry for:', url);
       try {
+        // Clone response to read body if needed, but for retry we'll make a new request
         const authHeader = await getNip98AuthHeader(url, options.method || 'GET', options.body);
         if (authHeader) {
           // Retry with auth
           const retryOptions = { ...options };
           retryOptions.headers = retryOptions.headers || {};
+
+          // Handle Headers object
           if (retryOptions.headers instanceof Headers) {
             retryOptions.headers.set('Authorization', authHeader);
-          } else {
+          } else if (retryOptions.headers instanceof Object) {
             retryOptions.headers['Authorization'] = authHeader;
+          } else {
+            retryOptions.headers = { 'Authorization': authHeader };
           }
-          return await originalFetch(url, retryOptions);
+
+          console.log('[Podkey] Retrying request with NIP-98 auth');
+          const retryResponse = await originalFetch(url, retryOptions);
+
+          if (retryResponse.status === 200 || retryResponse.status === 201) {
+            console.log('[Podkey] ✅ NIP-98 auth successful!');
+          } else {
+            console.log('[Podkey] ⚠️ Retry still failed with status:', retryResponse.status);
+          }
+
+          return retryResponse;
+        } else {
+          console.log('[Podkey] No NIP-98 auth header available for retry');
         }
       } catch (error) {
         console.error('[Podkey] Error retrying fetch with NIP-98 auth:', error);
@@ -156,15 +174,25 @@ window.addEventListener('podkey-request', async (event) => {
 
   async function getNip98AuthHeader (url, method, body) {
     try {
+      const urlString = typeof url === 'string' ? url : url.toString();
+      console.log('[Podkey] Requesting NIP-98 auth header for:', urlString, method);
+
       const response = await chrome.runtime.sendMessage({
         type: 'CREATE_NIP98_AUTH_HEADER',
-        url: typeof url === 'string' ? url : url.toString(),
+        url: urlString,
         method: method || 'GET',
         body: body
       });
 
       if (chrome.runtime.lastError) {
+        console.error('[Podkey] Error from background script:', chrome.runtime.lastError.message);
         return null;
+      }
+
+      if (response) {
+        console.log('[Podkey] Got NIP-98 auth header');
+      } else {
+        console.log('[Podkey] No NIP-98 auth header (origin not trusted, auto-sign disabled, or no keypair)');
       }
 
       return response || null;
