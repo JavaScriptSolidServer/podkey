@@ -1,13 +1,13 @@
 # 🔑 Podkey
 
-> World-class Nostr wallet extension with Solid superpowers
+> Browser extension for **did:nostr** and **Solid** authentication
 
 [![Version](https://img.shields.io/badge/version-0.0.4-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
 
-**Podkey** is a beautiful, secure Nostr wallet browser extension that goes beyond basic key management. Built specifically for the Solid ecosystem, it provides seamless authentication to Solid pods while remaining fully compatible with the broader Nostr ecosystem.
+**Podkey** is a beautiful, secure browser extension for **did:nostr** and **Solid** authentication. It provides a NIP-07-compatible Nostr wallet that enables seamless authentication to Solid pods using [did:nostr](https://nostrcg.github.io/did-nostr/) identities, while remaining fully compatible with the broader Nostr ecosystem.
 
 ## ✨ What Makes Podkey Different
 
@@ -19,12 +19,12 @@
 - 📊 **Trust management** with per-origin permissions
 - 🌈 **Delightful user experience** with intuitive design
 
-### Solid Superpowers
+### did:nostr & Solid Superpowers
 
-- **Zero-redirect authentication** to Solid servers
-- **Automatic signing** for trusted pods
-- **did:nostr identity** integration
-- **WebID linking** (coming soon)
+- **did:nostr identity** - Full support for [did:nostr](https://nostrcg.github.io/did-nostr/) decentralized identifiers
+- **Solid authentication** - Zero-redirect authentication to Solid servers using did:nostr
+- **Automatic signing** - Automatic signing for trusted Solid pods
+- **WebID linking** - Link did:nostr identities to Solid WebIDs (coming soon)
 
 ## 🚀 Quick Start
 
@@ -223,7 +223,7 @@ npm test
 
 ## 🔐 did:nostr Identity
 
-Podkey ensures all public keys are proper 64-character hexadecimal strings, making them compatible with the [did:nostr](https://github.com/w3c-ccg/did-method-nostr) specification:
+Podkey is built for **did:nostr** and **Solid** authentication. All public keys are proper 64-character hexadecimal strings, making them fully compatible with the [did:nostr specification](https://nostrcg.github.io/did-nostr/):
 
 ```javascript
 const pubkey = await window.nostr.getPublicKey()
@@ -233,9 +233,10 @@ const did = `did:nostr:${pubkey}`
 
 This enables:
 
-- ✅ Decentralized identity
+- ✅ **did:nostr** decentralized identifiers per [W3C specification](https://nostrcg.github.io/did-nostr/)
+- ✅ **Solid pod authentication** using did:nostr identities
 - ✅ Cross-platform identity portability
-- ✅ Solid pod authentication (future)
+- ✅ Verifiable credentials and authentication
 
 ## 📖 API Reference
 
@@ -320,7 +321,7 @@ We love contributions! Here's how to get started:
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details
+AGPL-3.0 License - see [LICENSE](LICENSE) for details
 
 ## 🙏 Acknowledgments
 
@@ -334,8 +335,10 @@ MIT License - see [LICENSE](LICENSE) for details
 - **GitHub**: https://github.com/JavaScriptSolidServer/podkey
 - **Issues**: https://github.com/JavaScriptSolidServer/podkey/issues
 - **Test Page**: https://javascriptsolidserver.github.io/podkey/test-page/
+- **did:nostr Specification**: https://nostrcg.github.io/did-nostr/
 - **NIP-07 Spec**: https://github.com/nostr-protocol/nips/blob/master/07.md
 - **NIP-98 Spec**: https://github.com/nostr-protocol/nips/blob/master/98.md
+- **Solid Project**: https://solidproject.org/
 
 ---
 

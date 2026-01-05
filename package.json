@@ -1,7 +1,7 @@
 {
   "name": "podkey",
   "version": "0.0.4",
-  "description": "World-class Nostr wallet extension with Solid superpowers - NIP-07 provider + auto-authentication",
+  "description": "did:nostr and Solid authentication extension - NIP-07 provider for decentralized identity",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -24,7 +24,7 @@
     "pod"
   ],
   "author": "JavaScriptSolidServer",
-  "license": "MIT",
+  "license": "AGPL-3.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/JavaScriptSolidServer/podkey.git"

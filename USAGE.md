@@ -1,5 +1,7 @@
 # 🚀 How to Use Podkey
 
+**Podkey** is a browser extension for **did:nostr** and **Solid** authentication. It provides NIP-07-compatible Nostr wallet functionality with seamless Solid pod authentication using [did:nostr](https://nostrcg.github.io/did-nostr/) identities.
+
 ## Quick Start Guide
 
 ### Step 1: Install Dependencies
