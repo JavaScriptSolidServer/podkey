@@ -1,6 +1,6 @@
 {
   "name": "podkey",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "did:nostr and Solid authentication extension - NIP-07 provider for decentralized identity",
   "main": "src/index.js",
   "type": "module",

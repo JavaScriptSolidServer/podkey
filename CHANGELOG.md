@@ -5,6 +5,14 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2024-12-XX
+
+### Changed
+
+- Improved installation guide on test page with comprehensive step-by-step instructions
+- Prioritized direct extension installation over git clone workflow
+- Added developer section for building from source
+
 ## [0.0.6] - 2024-12-XX
 
 ### Changed
@@ -93,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trust management system
 - Storage abstraction layer
 
+[0.0.7]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.6...v0.0.7
 [0.0.6]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.5...v0.0.6
 [0.0.5]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.4...v0.0.5
 [0.0.4]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.3...v0.0.4

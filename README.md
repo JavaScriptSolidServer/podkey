@@ -2,7 +2,7 @@
 
 > Browser extension for **did:nostr** and **Solid** authentication
 
-[![Version](https://img.shields.io/badge/version-0.0.6-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
+[![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
@@ -344,4 +344,4 @@ AGPL-3.0 License - see [LICENSE](LICENSE) for details
 
 **Made with 🔑 by the JavaScriptSolidServer team**
 
-_Podkey v0.0.6 - Your keys, your identity, your data_
+_Podkey v0.0.7 - Your keys, your identity, your data_
