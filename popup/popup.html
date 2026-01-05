@@ -1,100 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Podkey - Your Nostr Identity</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <!-- Setup Screen (shown when no key exists) -->
-  <div id="setupScreen" class="screen" style="display: none;">
-    <div class="header">
-      <div class="logo">🔑</div>
-      <h1>Welcome to Podkey</h1>
-      <p class="subtitle">did:nostr and Solid authentication for the decentralized web</p>
-    </div>
-
-    <div class="section">
-      <button id="generateBtn" class="btn btn-primary">
-        ✨ Generate New Key
-      </button>
-      <button id="importBtn" class="btn btn-secondary">
-        📥 Import Existing Key
-      </button>
-    </div>
-
-    <div class="info-box">
-      <p><strong>What is Podkey?</strong></p>
-      <p>A browser extension for <strong>did:nostr</strong> and <strong>Solid</strong> authentication. Store your cryptographic identity and authenticate seamlessly to Solid pods using did:nostr identities.</p>
-    </div>
-  </div>
-
-  <!-- Import Screen -->
-  <div id="importScreen" class="screen" style="display: none;">
-    <div class="header">
-      <h2>Import Private Key</h2>
-      <p class="subtitle">Enter your 64-character hex private key</p>
-    </div>
-
-    <div class="section">
-      <label for="privateKeyInput">Private Key (hex)</label>
-      <textarea id="privateKeyInput"
-                placeholder="Enter 64-character hexadecimal private key..."
-                rows="3"></textarea>
-      <div class="hint">⚠️ Never share your private key with anyone!</div>
-
-      <div class="actions">
-        <button id="importConfirmBtn" class="btn btn-primary">Import</button>
-        <button id="importCancelBtn" class="btn btn-secondary">Cancel</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Podkey - Your Nostr Identity</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <!-- Setup Screen (shown when no key exists) -->
+    <div id="setupScreen" class="screen" style="display: none">
+      <div class="header">
+        <div class="logo">🔑</div>
+        <h1>Welcome to Podkey</h1>
+        <p class="subtitle">
+          did:nostr and Solid authentication for the decentralized web
+        </p>
       </div>
-    </div>
-  </div>
 
-  <!-- Main Screen (shown when key exists) -->
-  <div id="mainScreen" class="screen" style="display: none;">
-    <div class="header">
-      <div class="logo-small">🔑</div>
-      <h1>Podkey</h1>
-    </div>
+      <div class="section">
+        <button id="generateBtn" class="btn btn-primary">
+          ✨ Generate New Key
+        </button>
+        <button id="importBtn" class="btn btn-secondary">
+          📥 Import Existing Key
+        </button>
+      </div>
 
-    <div class="section identity-section">
-      <div class="section-title">Your Identity</div>
-      <div class="identity-card">
-        <div class="identity-label">Public Key</div>
-        <div class="identity-value" id="publicKey">Loading...</div>
-
-        <div class="identity-label">DID</div>
-        <div class="identity-value" id="did">Loading...</div>
-
-        <button id="copyBtn" class="btn-copy">📋 Copy Public Key</button>
+      <div class="info-box">
+        <p><strong>What is Podkey?</strong></p>
+        <p>
+          A browser extension for <strong>did:nostr</strong> and
+          <strong>Solid</strong> authentication. Store your cryptographic
+          identity and authenticate seamlessly to Solid pods using did:nostr
+          identities.
+        </p>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Settings</div>
-      <div class="settings-item">
-        <span>Auto-sign for Solid</span>
-        <label class="toggle">
-          <input type="checkbox" id="autoSignToggle" checked>
-          <span class="slider"></span>
-        </label>
+    <!-- Import Screen -->
+    <div id="importScreen" class="screen" style="display: none">
+      <div class="header">
+        <h2>Import Private Key</h2>
+        <p class="subtitle">Enter your 64-character hex private key</p>
+      </div>
+
+      <div class="section">
+        <label for="privateKeyInput">Private Key (hex)</label>
+        <textarea
+          id="privateKeyInput"
+          placeholder="Enter 64-character hexadecimal private key..."
+          rows="3"
+        ></textarea>
+        <div class="hint">⚠️ Never share your private key with anyone!</div>
+
+        <div class="actions">
+          <button id="importConfirmBtn" class="btn btn-primary">Import</button>
+          <button id="importCancelBtn" class="btn btn-secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-title">Trusted Sites</div>
-      <div id="trustedList" class="trusted-list">
-        <div class="empty-state">No trusted sites yet</div>
+    <!-- Main Screen (shown when key exists) -->
+    <div id="mainScreen" class="screen" style="display: none">
+      <div class="header">
+        <div class="logo-small">🔑</div>
+        <h1>Podkey</h1>
+      </div>
+
+      <div class="section identity-section">
+        <div class="section-title">Your Identity</div>
+        <div class="identity-card">
+          <div class="identity-label">Public Key</div>
+          <div class="identity-value" id="publicKey">Loading...</div>
+
+          <div class="identity-label">DID</div>
+          <div class="identity-value" id="did">Loading...</div>
+
+          <button id="copyBtn" class="btn-copy">📋 Copy Public Key</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Settings</div>
+        <div class="settings-item">
+          <span>Auto-sign for Solid</span>
+          <label class="toggle">
+            <input type="checkbox" id="autoSignToggle" checked />
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Trusted Sites</div>
+        <div id="trustedList" class="trusted-list">
+          <div class="empty-state">No trusted sites yet</div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <a href="#" id="exportBtn">Export Key</a> •
+        <a
+          href="https://github.com/JavaScriptSolidServer/podkey"
+          target="_blank"
+          >GitHub</a
+        >
       </div>
     </div>
 
-    <div class="footer">
-      <a href="#" id="exportBtn">Export Key</a> •
-      <a href="https://github.com/JavaScriptSolidServer/podkey" target="_blank">GitHub</a>
-    </div>
-  </div>
-
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js"></script>
+  </body>
 </html>

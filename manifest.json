@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Podkey",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "did:nostr and Solid authentication extension - NIP-07 wallet for decentralized identity",
   "permissions": [
     "storage",
