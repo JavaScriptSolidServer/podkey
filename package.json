@@ -1,0 +1,46 @@
+{
+  "name": "podkey",
+  "version": "0.0.1",
+  "description": "World-class Nostr wallet extension with Solid superpowers - NIP-07 provider + auto-authentication",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Load extension from chrome://extensions in developer mode'",
+    "build": "npm run bundle",
+    "bundle": "node scripts/bundle.js",
+    "test": "node --test test/**/*.test.js",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "nostr",
+    "solid",
+    "wallet",
+    "nip-07",
+    "browser-extension",
+    "did-nostr",
+    "authentication",
+    "web3",
+    "identity",
+    "pod"
+  ],
+  "author": "JavaScriptSolidServer",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JavaScriptSolidServer/podkey.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JavaScriptSolidServer/podkey/issues"
+  },
+  "homepage": "https://github.com/JavaScriptSolidServer/podkey#readme",
+  "dependencies": {
+    "@noble/secp256k1": "^2.0.0",
+    "@noble/hashes": "^1.3.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

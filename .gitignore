@@ -1,0 +1,10 @@
+node_modules/
+*.log
+.DS_Store
+.env
+dist/
+*.crx
+*.pem
+*.zip
+.vscode/
+.idea/
