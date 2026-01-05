@@ -67,7 +67,115 @@ window.addEventListener('podkey-request', async (event) => {
   }
 });
 
-console.log('[Podkey] Content script loaded');
+// NIP-98 auto-auth: Intercept fetch and XMLHttpRequest
+(function interceptHttpRequests () {
+  // Intercept fetch
+  const originalFetch = window.fetch;
+  window.fetch = async function (url, options = {}) {
+    try {
+      const authHeader = await getNip98AuthHeader(url, options.method || 'GET', options.body);
+      if (authHeader) {
+        options.headers = options.headers || {};
+        if (options.headers instanceof Headers) {
+          options.headers.set('Authorization', authHeader);
+        } else {
+          options.headers['Authorization'] = authHeader;
+        }
+      }
+    } catch (error) {
+      console.error('[Podkey] Error adding NIP-98 auth to fetch:', error);
+    }
+
+    const response = await originalFetch(url, options);
+
+    // Handle 401 responses
+    if (response.status === 401) {
+      try {
+        const authHeader = await getNip98AuthHeader(url, options.method || 'GET', options.body);
+        if (authHeader) {
+          // Retry with auth
+          const retryOptions = { ...options };
+          retryOptions.headers = retryOptions.headers || {};
+          if (retryOptions.headers instanceof Headers) {
+            retryOptions.headers.set('Authorization', authHeader);
+          } else {
+            retryOptions.headers['Authorization'] = authHeader;
+          }
+          return await originalFetch(url, retryOptions);
+        }
+      } catch (error) {
+        console.error('[Podkey] Error retrying fetch with NIP-98 auth:', error);
+      }
+    }
+
+    return response;
+  };
+
+  // Intercept XMLHttpRequest
+  const originalOpen = XMLHttpRequest.prototype.open;
+  const originalSend = XMLHttpRequest.prototype.send;
+
+  XMLHttpRequest.prototype.open = function (method, url, ...args) {
+    this._podkeyMethod = method;
+    this._podkeyUrl = url;
+    return originalOpen.apply(this, [method, url, ...args]);
+  };
+
+  XMLHttpRequest.prototype.send = async function (body) {
+    try {
+      const authHeader = await getNip98AuthHeader(this._podkeyUrl, this._podkeyMethod, body);
+      if (authHeader) {
+        this.setRequestHeader('Authorization', authHeader);
+      }
+    } catch (error) {
+      console.error('[Podkey] Error adding NIP-98 auth to XHR:', error);
+    }
+
+    // Handle 401 responses
+    this.addEventListener('load', async function () {
+      if (this.status === 401) {
+        try {
+          const authHeader = await getNip98AuthHeader(this._podkeyUrl, this._podkeyMethod, body);
+          if (authHeader) {
+            // Retry with auth
+            const retryXhr = new XMLHttpRequest();
+            retryXhr.open(this._podkeyMethod, this._podkeyUrl);
+            retryXhr.setRequestHeader('Authorization', authHeader);
+            // Copy other headers if needed
+            retryXhr.send(body);
+            // Note: This is a simplified retry - in practice, you'd want to handle the response properly
+          }
+        } catch (error) {
+          console.error('[Podkey] Error retrying XHR with NIP-98 auth:', error);
+        }
+      }
+    });
+
+    return originalSend.apply(this, [body]);
+  };
+
+  async function getNip98AuthHeader (url, method, body) {
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'CREATE_NIP98_AUTH_HEADER',
+        url: typeof url === 'string' ? url : url.toString(),
+        method: method || 'GET',
+        body: body
+      });
+
+      if (chrome.runtime.lastError) {
+        return null;
+      }
+
+      return response || null;
+    } catch (error) {
+      console.error('[Podkey] Error getting NIP-98 auth header:', error);
+      return null;
+    }
+  }
+})();
+
+console.log('[Podkey] Content script loaded with NIP-98 auto-auth interception');
 
 // Error handling for script injection
 script.onerror = function () {
