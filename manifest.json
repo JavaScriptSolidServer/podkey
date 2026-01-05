@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Podkey",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "World-class Nostr wallet with Solid superpowers - your keys, your identity, your data",
   "permissions": [
     "storage",

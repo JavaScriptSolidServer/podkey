@@ -29,9 +29,15 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender).then(sendResponse).catch(error => {
-    sendResponse({ error: error.message });
-  });
+  handleMessage(message, sender)
+    .then(result => {
+      console.log('[Podkey] Message handled successfully:', message.type, result);
+      sendResponse(result);
+    })
+    .catch(error => {
+      console.error('[Podkey] Error handling message:', message.type, error);
+      sendResponse({ error: error.message });
+    });
 
   return true; // Async response
 });
@@ -163,15 +169,28 @@ async function handleSignEvent (event, origin, sender) {
  * Generate new keypair
  */
 async function handleGenerateKeypair () {
-  const keypair = await generateKeypair();
-  await storeKeypair(keypair.privateKey, keypair.publicKey);
+  try {
+    console.log('[Podkey] Starting keypair generation...');
+    const keypair = await generateKeypair();
+    console.log('[Podkey] Keypair generated:', { 
+      privateKeyLength: keypair.privateKey.length, 
+      publicKeyLength: keypair.publicKey.length 
+    });
+    
+    await storeKeypair(keypair.privateKey, keypair.publicKey);
+    console.log('[Podkey] Keypair stored');
 
-  console.log('[Podkey] New keypair generated');
-
-  return {
-    publicKey: keypair.publicKey,
-    did: `did:nostr:${keypair.publicKey}`
-  };
+    const result = {
+      publicKey: keypair.publicKey,
+      did: `did:nostr:${keypair.publicKey}`
+    };
+    
+    console.log('[Podkey] Returning result:', result);
+    return result;
+  } catch (error) {
+    console.error('[Podkey] Error generating keypair:', error);
+    throw error;
+  }
 }
 
 /**

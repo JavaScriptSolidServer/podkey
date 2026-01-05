@@ -20,7 +20,8 @@ secp256k1.hashes.sha256 = sha256;
  */
 export async function generateKeypair () {
   // Generate random 32-byte private key
-  const privateKeyBytes = secp256k1.utils.randomPrivateKey();
+  // In @noble/secp256k1 v3.0.0, use randomSecretKey instead of randomPrivateKey
+  const privateKeyBytes = secp256k1.utils.randomSecretKey();
   const privateKey = bytesToHex(privateKeyBytes);
 
   // Derive public key

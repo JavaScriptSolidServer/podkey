@@ -5,6 +5,21 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2024-12-XX
+
+### Fixed
+
+- Fixed key generation bug: Changed `randomPrivateKey()` to `randomSecretKey()` for @noble/secp256k1 v3.0.0 compatibility
+- Added comprehensive error logging for debugging
+- Fixed storage test suite (removed beforeEach, using clearStorage function)
+
+### Added
+
+- Comprehensive test suite with 20 passing tests
+  - Crypto function tests (key generation, signing, verification)
+  - Storage function tests (keypair management, trusted origins, auto-sign)
+- Better error handling and logging in background service worker
+
 ## [0.0.3] - 2024-12-XX
 
 ### Added
@@ -50,4 +65,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trust management system
 - Storage abstraction layer
 
+[0.0.4]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.3...v0.0.4
 [0.0.3]: https://github.com/JavaScriptSolidServer/podkey/compare/v0.0.2...v0.0.3
