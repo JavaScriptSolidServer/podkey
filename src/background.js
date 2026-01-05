@@ -12,8 +12,17 @@ import {
   addTrustedOrigin,
   getAutoSign
 } from './storage.js';
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
 
 console.log('[Podkey] Background service worker started');
+
+// NIP-98 auth event cache: key = `${url}:${method}:${bodyHash}`, value = { event, expires }
+const nip98Cache = new Map();
+const CACHE_TTL = 60000; // 60 seconds
+
+// Track retry state to prevent infinite loops: key = requestId, value = true
+const retryState = new Map();
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
@@ -73,6 +82,13 @@ async function handleMessage (message, sender) {
     case 'NIP04_ENCRYPT':
     case 'NIP04_DECRYPT':
       throw new Error('NIP-04 encryption not yet implemented');
+
+    case 'CREATE_NIP98_AUTH_HEADER':
+      return await createNip98AuthHeader(
+        message.url,
+        message.method,
+        message.body
+      );
 
     default:
       throw new Error(`Unknown message type: ${type}`);
@@ -287,3 +303,145 @@ function formatEventForPrompt (event) {
 
   return lines.join('\n');
 }
+
+
+/**
+ * Encode signed event to Authorization header value
+ * @param {object} signedEvent - Signed Nostr event
+ * @returns {string} Base64-encoded event for Authorization header
+ */
+function encodeNip98Header (signedEvent) {
+  const eventJson = JSON.stringify(signedEvent);
+  // Use btoa for base64 encoding (available in service workers)
+  return btoa(eventJson);
+}
+
+
+/**
+ * Create NIP-98 auth header for a request (called from content script)
+ * @param {string} url - Request URL
+ * @param {string} method - HTTP method
+ * @param {string|ArrayBuffer|Blob|null} body - Request body
+ * @returns {Promise<string>} Authorization header value
+ */
+/**
+ * Check if an origin is likely a Solid server
+ * @param {string} origin - Origin to check
+ * @returns {boolean}
+ */
+function isLikelySolidServer (origin) {
+  // Common Solid server indicators
+  const solidIndicators = [
+    'solid.social',
+    'solidcommunity.net',
+    'inrupt.net',
+    'solidweb.org',
+    '/.well-known/solid'
+  ];
+
+  return solidIndicators.some(indicator => origin.includes(indicator));
+}
+
+async function createNip98AuthHeader (url, method, body = null) {
+  try {
+    // Check if we should add auth
+    const origin = new URL(url).origin;
+    const trusted = await isTrustedOrigin(origin);
+    const autoSign = await getAutoSign();
+    const keyExists = await hasKeypair();
+    const isSolid = isLikelySolidServer(origin);
+
+    console.log('[Podkey] NIP-98 auth check:', {
+      url,
+      origin,
+      keyExists,
+      trusted,
+      autoSign,
+      isSolid
+    });
+
+    if (!keyExists) {
+      console.log('[Podkey] No keypair found, skipping NIP-98 auth');
+      return null;
+    }
+
+    // For Solid servers, auto-trust on first use if auto-sign is enabled
+    if (!trusted && isSolid && autoSign) {
+      console.log('[Podkey] Auto-trusting Solid server:', origin);
+      await addTrustedOrigin(origin);
+    } else if (!trusted) {
+      console.log('[Podkey] Origin not trusted, skipping NIP-98 auth');
+      return null;
+    }
+
+    if (!autoSign) {
+      console.log('[Podkey] Auto-sign disabled, skipping NIP-98 auth');
+      return null;
+    }
+
+    // Hash body if present
+    let bodyHash = '';
+    if (body) {
+      if (typeof body === 'string') {
+        bodyHash = bytesToHex(sha256(new TextEncoder().encode(body)));
+      } else if (body instanceof ArrayBuffer) {
+        bodyHash = bytesToHex(sha256(new Uint8Array(body)));
+      } else if (body instanceof Blob) {
+        const arrayBuffer = await body.arrayBuffer();
+        bodyHash = bytesToHex(sha256(new Uint8Array(arrayBuffer)));
+      }
+    }
+
+    // Check cache
+    const cacheKey = `${url}:${method}:${bodyHash}`;
+    const cached = nip98Cache.get(cacheKey);
+
+    let signedEvent;
+    if (cached && cached.expires > Date.now()) {
+      signedEvent = cached.event;
+      console.log('[Podkey] Using cached NIP-98 auth event');
+    } else {
+      // Create and sign event
+      const event = {
+        kind: 27235,
+        content: '',
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['u', url],
+          ['method', method]
+        ]
+      };
+
+      if (bodyHash) {
+        event.tags.push(['payload', bodyHash]);
+      }
+
+      const keypair = await getKeypair();
+      signedEvent = await signEvent(event, keypair.privateKey);
+
+      // Cache
+      nip98Cache.set(cacheKey, {
+        event: signedEvent,
+        expires: Date.now() + CACHE_TTL
+      });
+
+      console.log('[Podkey] Created and signed NIP-98 auth event for', url);
+      console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent, null, 2));
+      console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
+    }
+
+    const authHeader = `Nostr ${encodeNip98Header(signedEvent)}`;
+    console.log('[Podkey] Authorization header (first 100 chars):', authHeader.substring(0, 100) + '...');
+    return authHeader;
+  } catch (error) {
+    console.error('[Podkey] Error creating NIP-98 auth header:', error);
+    return null;
+  }
+}
+
+// Note: Blocking webRequest listeners require webRequestBlocking permission,
+// which is deprecated in Manifest V3 and only available for enterprise extensions.
+// Instead, we use JavaScript-level interception via content scripts.
+// See src/injected.js for fetch/XMLHttpRequest interception.
+
+console.log('[Podkey] NIP-98 auto-auth: Using JavaScript-level interception (see injected.js)');

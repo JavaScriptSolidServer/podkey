@@ -32,7 +32,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/nostr-provider.js"
+        "src/nostr-provider.js",
+        "src/nip98-interceptor.js"
       ],
       "matches": [
         "<all_urls>"
