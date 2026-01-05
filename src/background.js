@@ -338,7 +338,7 @@ function isLikelySolidServer (origin) {
     'solidweb.org',
     '/.well-known/solid'
   ];
-  
+
   return solidIndicators.some(indicator => origin.includes(indicator));
 }
 

@@ -3,6 +3,122 @@
  * Bridges between injected window.nostr and background script
  */
 
+// CRITICAL: Set up fetch/XHR interception IMMEDIATELY, synchronously
+// This must run before ANY other code, including page scripts
+(function setupInterceptionImmediately () {
+  'use strict';
+
+  // Store original functions
+  const originalFetch = window.fetch;
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+  const originalXHRSend = XMLHttpRequest.prototype.send;
+
+  // Helper to get auth header (will be async, but we'll handle that)
+  let getAuthHeaderFn = null;
+
+  // Set up the async auth header function (will be defined below)
+  function setAuthHeaderFn (fn) {
+    getAuthHeaderFn = fn;
+  }
+
+  // Intercept fetch - synchronous wrapper, async implementation
+  window.fetch = function (url, options = {}) {
+    const urlString = typeof url === 'string' ? url : url.toString();
+    console.log('[Podkey] 🔍 fetch() called:', urlString, options.method || 'GET');
+    
+    // If we have the auth function, use it
+    if (getAuthHeaderFn) {
+      console.log('[Podkey] Auth function available, adding header...');
+      const promise = (async () => {
+        try {
+          const authHeader = await getAuthHeaderFn(url, options.method || 'GET', options.body);
+          if (authHeader) {
+            options = options || {};
+            options.headers = options.headers || {};
+            if (options.headers instanceof Headers) {
+              options.headers.set('Authorization', authHeader);
+              console.log('[Podkey] ✅ Added NIP-98 auth header (Headers)');
+            } else {
+              options.headers['Authorization'] = authHeader;
+              console.log('[Podkey] ✅ Added NIP-98 auth header (object)');
+            }
+          } else {
+            console.log('[Podkey] ⚠️ No auth header returned (will retry on 401)');
+          }
+        } catch (e) {
+          console.error('[Podkey] Error in fetch interceptor:', e);
+        }
+        return originalFetch.call(this, url, options);
+      })();
+      
+      // Handle 401 retry
+      return promise.then(response => {
+        if (response.status === 401 && getAuthHeaderFn) {
+          console.log('[Podkey] 🔄 401 detected, retrying with auth...');
+          return (async () => {
+            try {
+              const authHeader = await getAuthHeaderFn(url, options.method || 'GET', options.body);
+              if (authHeader) {
+                const retryOptions = { ...options };
+                retryOptions.headers = retryOptions.headers || {};
+                if (retryOptions.headers instanceof Headers) {
+                  retryOptions.headers.set('Authorization', authHeader);
+                } else {
+                  retryOptions.headers['Authorization'] = authHeader;
+                }
+                console.log('[Podkey] 🔄 Retrying with NIP-98 auth...');
+                const retryResponse = await originalFetch.call(this, url, retryOptions);
+                if (retryResponse.status === 200 || retryResponse.status === 201) {
+                  console.log('[Podkey] ✅✅ NIP-98 auth retry successful!');
+                } else {
+                  console.log('[Podkey] ⚠️ Retry still failed:', retryResponse.status);
+                }
+                return retryResponse;
+              }
+            } catch (e) {
+              console.error('[Podkey] Error in 401 retry:', e);
+            }
+            return response;
+          })();
+        }
+        return response;
+      });
+    }
+    
+    // Fallback if auth function not ready yet
+    console.log('[Podkey] ⚠️ Auth function not ready yet, making request without auth');
+    return originalFetch.call(this, url, options);
+  };
+
+  // Intercept XMLHttpRequest
+  XMLHttpRequest.prototype.open = function (method, url, ...args) {
+    this._podkeyMethod = method;
+    this._podkeyUrl = url;
+    return originalXHROpen.apply(this, [method, url, ...args]);
+  };
+
+  XMLHttpRequest.prototype.send = function (body) {
+    if (getAuthHeaderFn && this._podkeyUrl) {
+      (async () => {
+        try {
+          const authHeader = await getAuthHeaderFn(this._podkeyUrl, this._podkeyMethod, body);
+          if (authHeader) {
+            this.setRequestHeader('Authorization', authHeader);
+          }
+        } catch (e) {
+          console.error('[Podkey] Error in XHR interceptor:', e);
+        }
+      })();
+    }
+    return originalXHRSend.apply(this, [body]);
+  };
+
+  // Expose setter for the auth function
+  window.__podkey_setAuthFn = setAuthHeaderFn;
+
+  console.log('[Podkey] ✅ Synchronous interception setup complete');
+})();
+
 // Inject the nostr provider script into the page
 const script = document.createElement('script');
 script.src = chrome.runtime.getURL('src/nostr-provider.js');
@@ -67,110 +183,10 @@ window.addEventListener('podkey-request', async (event) => {
   }
 });
 
-// NIP-98 auto-auth: Intercept fetch and XMLHttpRequest
-(function interceptHttpRequests () {
-  // Intercept fetch
-  const originalFetch = window.fetch;
-  window.fetch = async function (url, options = {}) {
-    try {
-      const authHeader = await getNip98AuthHeader(url, options.method || 'GET', options.body);
-      if (authHeader) {
-        options.headers = options.headers || {};
-        if (options.headers instanceof Headers) {
-          options.headers.set('Authorization', authHeader);
-        } else {
-          options.headers['Authorization'] = authHeader;
-        }
-      }
-    } catch (error) {
-      console.error('[Podkey] Error adding NIP-98 auth to fetch:', error);
-    }
-
-    const response = await originalFetch(url, options);
-
-    // Handle 401 responses - retry with NIP-98 auth
-    if (response.status === 401) {
-      console.log('[Podkey] 401 detected, attempting NIP-98 auth retry for:', url);
-      try {
-        // Clone response to read body if needed, but for retry we'll make a new request
-        const authHeader = await getNip98AuthHeader(url, options.method || 'GET', options.body);
-        if (authHeader) {
-          // Retry with auth
-          const retryOptions = { ...options };
-          retryOptions.headers = retryOptions.headers || {};
-
-          // Handle Headers object
-          if (retryOptions.headers instanceof Headers) {
-            retryOptions.headers.set('Authorization', authHeader);
-          } else if (retryOptions.headers instanceof Object) {
-            retryOptions.headers['Authorization'] = authHeader;
-          } else {
-            retryOptions.headers = { 'Authorization': authHeader };
-          }
-
-          console.log('[Podkey] Retrying request with NIP-98 auth');
-          const retryResponse = await originalFetch(url, retryOptions);
-
-          if (retryResponse.status === 200 || retryResponse.status === 201) {
-            console.log('[Podkey] ✅ NIP-98 auth successful!');
-          } else {
-            console.log('[Podkey] ⚠️ Retry still failed with status:', retryResponse.status);
-          }
-
-          return retryResponse;
-        } else {
-          console.log('[Podkey] No NIP-98 auth header available for retry');
-        }
-      } catch (error) {
-        console.error('[Podkey] Error retrying fetch with NIP-98 auth:', error);
-      }
-    }
-
-    return response;
-  };
-
-  // Intercept XMLHttpRequest
-  const originalOpen = XMLHttpRequest.prototype.open;
-  const originalSend = XMLHttpRequest.prototype.send;
-
-  XMLHttpRequest.prototype.open = function (method, url, ...args) {
-    this._podkeyMethod = method;
-    this._podkeyUrl = url;
-    return originalOpen.apply(this, [method, url, ...args]);
-  };
-
-  XMLHttpRequest.prototype.send = async function (body) {
-    try {
-      const authHeader = await getNip98AuthHeader(this._podkeyUrl, this._podkeyMethod, body);
-      if (authHeader) {
-        this.setRequestHeader('Authorization', authHeader);
-      }
-    } catch (error) {
-      console.error('[Podkey] Error adding NIP-98 auth to XHR:', error);
-    }
-
-    // Handle 401 responses
-    this.addEventListener('load', async function () {
-      if (this.status === 401) {
-        try {
-          const authHeader = await getNip98AuthHeader(this._podkeyUrl, this._podkeyMethod, body);
-          if (authHeader) {
-            // Retry with auth
-            const retryXhr = new XMLHttpRequest();
-            retryXhr.open(this._podkeyMethod, this._podkeyUrl);
-            retryXhr.setRequestHeader('Authorization', authHeader);
-            // Copy other headers if needed
-            retryXhr.send(body);
-            // Note: This is a simplified retry - in practice, you'd want to handle the response properly
-          }
-        } catch (error) {
-          console.error('[Podkey] Error retrying XHR with NIP-98 auth:', error);
-        }
-      }
-    });
-
-    return originalSend.apply(this, [body]);
-  };
+// NIP-98 auto-auth: Set up the async auth header function
+// This connects to the synchronous interceptor above
+(function setupAuthFunction () {
+  console.log('[Podkey] Setting up NIP-98 auth function...');
 
   async function getNip98AuthHeader (url, method, body) {
     try {
@@ -190,9 +206,9 @@ window.addEventListener('podkey-request', async (event) => {
       }
 
       if (response) {
-        console.log('[Podkey] Got NIP-98 auth header');
+        console.log('[Podkey] ✅ Got NIP-98 auth header');
       } else {
-        console.log('[Podkey] No NIP-98 auth header (origin not trusted, auto-sign disabled, or no keypair)');
+        console.log('[Podkey] ❌ No NIP-98 auth header (origin not trusted, auto-sign disabled, or no keypair)');
       }
 
       return response || null;
@@ -200,6 +216,14 @@ window.addEventListener('podkey-request', async (event) => {
       console.error('[Podkey] Error getting NIP-98 auth header:', error);
       return null;
     }
+  }
+
+  // Connect the auth function to the synchronous interceptor
+  if (window.__podkey_setAuthFn) {
+    window.__podkey_setAuthFn(getNip98AuthHeader);
+    console.log('[Podkey] ✅ Auth function connected');
+  } else {
+    console.error('[Podkey] ❌ Could not connect auth function - interceptor not ready');
   }
 })();
 
