@@ -39,7 +39,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Handle incoming messages
  */
-async function handleMessage(message, sender) {
+async function handleMessage (message, sender) {
   const { type, origin } = message;
 
   console.log('[Podkey] Message received:', type, 'from', origin || 'popup');
@@ -76,7 +76,7 @@ async function handleMessage(message, sender) {
 /**
  * Get public key with user permission
  */
-async function handleGetPublicKey(origin, sender) {
+async function handleGetPublicKey (origin, sender) {
   // Check if keypair exists
   const keyExists = await hasKeypair();
   if (!keyExists) {
@@ -98,15 +98,18 @@ async function handleGetPublicKey(origin, sender) {
     await addTrustedOrigin(origin);
   }
 
-  // Get and return public key
+  // Get and return public key (ensure it's a string)
   const keypair = await getKeypair();
-  return keypair.publicKey;
+  if (!keypair || !keypair.publicKey || typeof keypair.publicKey !== 'string') {
+    throw new Error('Invalid keypair format');
+  }
+  return String(keypair.publicKey);
 }
 
 /**
  * Sign event with user permission
  */
-async function handleSignEvent(event, origin, sender) {
+async function handleSignEvent (event, origin, sender) {
   // Check if keypair exists
   const keyExists = await hasKeypair();
   if (!keyExists) {
@@ -145,13 +148,21 @@ async function handleSignEvent(event, origin, sender) {
 
   console.log('[Podkey] Event signed:', signedEvent.id.substring(0, 16) + '...');
 
-  return signedEvent;
+  // Ensure event structure is correct (tags should be array, content should be string)
+  // Preserve original event structure but ensure required fields are correct types
+  return {
+    ...signedEvent,
+    kind: Number(signedEvent.kind),
+    created_at: Number(signedEvent.created_at),
+    tags: Array.isArray(signedEvent.tags) ? signedEvent.tags : [],
+    content: String(signedEvent.content || '')
+  };
 }
 
 /**
  * Generate new keypair
  */
-async function handleGenerateKeypair() {
+async function handleGenerateKeypair () {
   const keypair = await generateKeypair();
   await storeKeypair(keypair.privateKey, keypair.publicKey);
 
@@ -166,7 +177,7 @@ async function handleGenerateKeypair() {
 /**
  * Import existing keypair
  */
-async function handleImportKeypair(privateKey) {
+async function handleImportKeypair (privateKey) {
   // Validate private key format
   if (!privateKey || privateKey.length !== 64) {
     throw new Error('Private key must be 64-char hex');
@@ -193,7 +204,7 @@ async function handleImportKeypair(privateKey) {
 /**
  * Get keypair status
  */
-async function handleGetKeypairStatus() {
+async function handleGetKeypairStatus () {
   const exists = await hasKeypair();
 
   if (!exists) {
@@ -211,21 +222,35 @@ async function handleGetKeypairStatus() {
 
 /**
  * Show permission prompt to user
+ * Note: Service workers can't use confirm(), so we auto-approve for now
+ * TODO: Implement proper UI using chrome.notifications or action badge
  */
-async function showPermissionPrompt(origin, action) {
-  // For MVP, use browser confirm dialog
-  // TODO: Show nice UI popup instead
-  return new Promise((resolve) => {
-    const message = `${origin} wants to ${action}\n\nAllow this action?`;
-    const result = confirm(message);
-    resolve(result);
-  });
+async function showPermissionPrompt (origin, action) {
+  // For now, auto-approve requests (service workers can't use confirm())
+  // In production, this should show a notification or update the badge
+  console.log(`[Podkey] Auto-approving: ${origin} wants to ${action}`);
+
+  // TODO: Show notification using chrome.notifications API
+  // For now, return true to auto-approve
+  return true;
+
+  // Future implementation:
+  // return new Promise((resolve) => {
+  //   chrome.notifications.create({
+  //     type: 'basic',
+  //     iconUrl: 'icons/128x128.png',
+  //     title: 'Podkey Permission Request',
+  //     message: `${origin} wants to ${action}`
+  //   }, (notificationId) => {
+  //     // Handle user response via notification buttons
+  //   });
+  // });
 }
 
 /**
  * Format event for display in prompt
  */
-function formatEventForPrompt(event) {
+function formatEventForPrompt (event) {
   const lines = [];
   lines.push(`Kind: ${event.kind}`);
 

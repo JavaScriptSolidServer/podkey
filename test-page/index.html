@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Podkey Test Page - NIP-07 Diagnostics</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+          'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+        background: linear-gradient(
+          135deg,
+          #fef5ff 0%,
+          #f0f9ff 50%,
+          #fef3c7 100%
+        );
+        color: #334155;
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 32px;
+        padding: 24px;
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.1);
+      }
+
+      .header h1 {
+        font-size: 32px;
+        background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+      }
+
+      .header p {
+        color: #64748b;
+        font-size: 14px;
+      }
+
+      .status-card {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(168, 85, 247, 0.2);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.08);
+      }
+
+      .status-card h2 {
+        font-size: 18px;
+        color: #7c3aed;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #cbd5e1;
+        animation: pulse 2s infinite;
+      }
+
+      .status-indicator.active {
+        background: #10b981;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+      }
+
+      .status-indicator.error {
+        background: #ef4444;
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .test-button {
+        background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-right: 8px;
+        margin-bottom: 8px;
+      }
+
+      .test-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+      }
+
+      .test-button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .log {
+        background: #1e293b;
+        color: #e2e8f0;
+        padding: 16px;
+        border-radius: 8px;
+        font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        font-size: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-top: 12px;
+      }
+
+      .log-entry {
+        margin-bottom: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+
+      .log-time {
+        color: #64748b;
+        margin-right: 8px;
+      }
+
+      .log-success {
+        color: #10b981;
+      }
+
+      .log-error {
+        color: #ef4444;
+      }
+
+      .log-info {
+        color: #3b82f6;
+      }
+
+      .log-warn {
+        color: #f59e0b;
+      }
+
+      .value-display {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px;
+        font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        font-size: 11px;
+        word-break: break-all;
+        margin-top: 8px;
+        color: #475569;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: 8px;
+      }
+
+      .badge-success {
+        background: #d1fae5;
+        color: #065f46;
+      }
+
+      .badge-error {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔑 Podkey Test Page</h1>
+        <p>Real-time diagnostics for NIP-07 extension testing</p>
+      </div>
+
+      <div class="status-card">
+        <h2>
+          <span class="status-indicator" id="extensionStatus"></span>
+          Extension Status
+        </h2>
+        <div id="extensionInfo">Checking...</div>
+      </div>
+
+      <div class="status-card">
+        <h2>🔐 Key Management</h2>
+        <div class="grid">
+          <div>
+            <button class="test-button" onclick="testGetPublicKey()">
+              Get Public Key
+            </button>
+            <div
+              id="publicKeyResult"
+              class="value-display"
+              style="display: none"
+            ></div>
+          </div>
+          <div>
+            <button class="test-button" onclick="testKeypairStatus()">
+              Check Keypair Status
+            </button>
+            <div
+              id="keypairStatusResult"
+              class="value-display"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-card">
+        <h2>✍️ Event Signing</h2>
+        <div class="grid">
+          <div>
+            <button class="test-button" onclick="testSignSimpleEvent()">
+              Sign Simple Event
+            </button>
+          </div>
+          <div>
+            <button class="test-button" onclick="testSignTextNote()">
+              Sign Text Note
+            </button>
+          </div>
+          <div>
+            <button class="test-button" onclick="testSignWithTags()">
+              Sign with Tags
+            </button>
+          </div>
+        </div>
+        <div
+          id="signEventResult"
+          class="value-display"
+          style="display: none"
+        ></div>
+      </div>
+
+      <div class="status-card">
+        <h2>📊 Event Log</h2>
+        <div class="log" id="eventLog">
+          <div class="log-entry">
+            <span class="log-time">[00:00:00]</span>
+            <span class="log-info">Initializing test page...</span>
+          </div>
+        </div>
+        <button
+          class="test-button"
+          onclick="clearLog()"
+          style="margin-top: 12px"
+        >
+          Clear Log
+        </button>
+      </div>
+    </div>
+
+    <script>
+      let logCount = 0
+
+      function log(message, type = 'info') {
+        const logEl = document.getElementById('eventLog')
+        const time = new Date().toLocaleTimeString()
+        const entry = document.createElement('div')
+        entry.className = 'log-entry'
+
+        const timeSpan = document.createElement('span')
+        timeSpan.className = 'log-time'
+        timeSpan.textContent = `[${time}]`
+
+        const messageSpan = document.createElement('span')
+        messageSpan.className = `log-${type}`
+        messageSpan.textContent = message
+
+        entry.appendChild(timeSpan)
+        entry.appendChild(messageSpan)
+        logEl.insertBefore(entry, logEl.firstChild)
+
+        logCount++
+        if (logCount > 100) {
+          // Keep only last 100 entries
+          while (logEl.children.length > 100) {
+            logEl.removeChild(logEl.lastChild)
+          }
+        }
+      }
+
+      function clearLog() {
+        document.getElementById('eventLog').innerHTML = ''
+        logCount = 0
+        log('Log cleared', 'info')
+      }
+
+      function updateExtensionStatus() {
+        const statusEl = document.getElementById('extensionStatus')
+        const infoEl = document.getElementById('extensionInfo')
+
+        if (typeof window.nostr !== 'undefined') {
+          statusEl.className = 'status-indicator active'
+          infoEl.innerHTML = `
+          <strong>✅ Podkey Extension Detected</strong>
+          <span class="badge badge-success">Active</span>
+          <div style="margin-top: 8px; font-size: 12px; color: #64748b;">
+            window.nostr is available
+          </div>
+        `
+          log(
+            'Podkey extension detected - window.nostr is available',
+            'success'
+          )
+        } else {
+          statusEl.className = 'status-indicator error'
+          infoEl.innerHTML = `
+          <strong>❌ Podkey Extension Not Found</strong>
+          <span class="badge badge-error">Not Installed</span>
+          <div style="margin-top: 8px; font-size: 12px; color: #64748b;">
+            window.nostr is undefined. Make sure the extension is installed and enabled.
+          </div>
+        `
+          log('Podkey extension not found - window.nostr is undefined', 'error')
+        }
+      }
+
+      async function testGetPublicKey() {
+        log('Testing getPublicKey()...', 'info')
+        try {
+          if (!window.nostr) {
+            throw new Error('window.nostr is not available')
+          }
+
+          const pubkey = await window.nostr.getPublicKey()
+          const resultEl = document.getElementById('publicKeyResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `
+          <strong>Public Key:</strong><br>
+          ${pubkey}<br><br>
+          <strong>DID:</strong><br>
+          did:nostr:${pubkey}
+        `
+          log(
+            `✅ getPublicKey() succeeded: ${pubkey.substring(0, 16)}...`,
+            'success'
+          )
+        } catch (error) {
+          log(`❌ getPublicKey() failed: ${error.message}`, 'error')
+          const resultEl = document.getElementById('publicKeyResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `<strong style="color: #ef4444;">Error:</strong> ${error.message}`
+        }
+      }
+
+      async function testKeypairStatus() {
+        log('Testing keypair status...', 'info')
+        try {
+          if (!window.nostr) {
+            throw new Error('window.nostr is not available')
+          }
+
+          const pubkey = await window.nostr.getPublicKey()
+          const resultEl = document.getElementById('keypairStatusResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `
+          <strong>Status:</strong> Keypair exists<br>
+          <strong>Public Key:</strong> ${pubkey.substring(0, 32)}...<br>
+          <strong>Length:</strong> ${pubkey.length} characters
+        `
+          log(`✅ Keypair exists: ${pubkey.length}-char hex key`, 'success')
+        } catch (error) {
+          log(`❌ Keypair check failed: ${error.message}`, 'error')
+          const resultEl = document.getElementById('keypairStatusResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `<strong style="color: #ef4444;">Error:</strong> ${error.message}`
+        }
+      }
+
+      async function testSignSimpleEvent() {
+        log('Testing signEvent() with simple event...', 'info')
+        try {
+          if (!window.nostr) {
+            throw new Error('window.nostr is not available')
+          }
+
+          const event = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: 'Hello from Podkey test page!'
+          }
+
+          const signed = await window.nostr.signEvent(event)
+          const resultEl = document.getElementById('signEventResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `
+          <strong>Signed Event:</strong><br>
+          <pre style="white-space: pre-wrap; font-size: 10px;">${JSON.stringify(
+            signed,
+            null,
+            2
+          )}</pre>
+        `
+          log(
+            `✅ signEvent() succeeded - Event ID: ${signed.id.substring(
+              0,
+              16
+            )}...`,
+            'success'
+          )
+        } catch (error) {
+          log(`❌ signEvent() failed: ${error.message}`, 'error')
+          const resultEl = document.getElementById('signEventResult')
+          resultEl.style.display = 'block'
+          resultEl.innerHTML = `<strong style="color: #ef4444;">Error:</strong> ${error.message}`
+        }
+      }
+
+      async function testSignTextNote() {
+        log('Testing signEvent() with text note...', 'info')
+        try {
+          if (!window.nostr) {
+            throw new Error('window.nostr is not available')
+          }
+
+          const event = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content:
+              'This is a test note from the Podkey test page. Testing NIP-07 compatibility! 🔑'
+          }
+
+          const signed = await window.nostr.signEvent(event)
+          log(
+            `✅ Text note signed - ID: ${signed.id.substring(0, 16)}...`,
+            'success'
+          )
+          log(`   Content: "${signed.content.substring(0, 50)}..."`, 'info')
+        } catch (error) {
+          log(`❌ Text note signing failed: ${error.message}`, 'error')
+        }
+      }
+
+      async function testSignWithTags() {
+        log('Testing signEvent() with tags...', 'info')
+        try {
+          if (!window.nostr) {
+            throw new Error('window.nostr is not available')
+          }
+
+          const event = {
+            kind: 1,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+              ['t', 'podkey'],
+              ['t', 'test'],
+              [
+                'p',
+                '3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d'
+              ]
+            ],
+            content: 'Testing event with tags #podkey #test'
+          }
+
+          const signed = await window.nostr.signEvent(event)
+          log(
+            `✅ Event with tags signed - ID: ${signed.id.substring(0, 16)}...`,
+            'success'
+          )
+          log(`   Tags: ${signed.tags.length} tags included`, 'info')
+        } catch (error) {
+          log(`❌ Tagged event signing failed: ${error.message}`, 'error')
+        }
+      }
+
+      // Listen for nostr-ready event
+      window.addEventListener('nostr-ready', () => {
+        log('nostr-ready event fired', 'success')
+        updateExtensionStatus()
+      })
+
+      // Initial check
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          setTimeout(updateExtensionStatus, 100)
+        })
+      } else {
+        setTimeout(updateExtensionStatus, 100)
+      }
+
+      // Periodic check for extension
+      setInterval(() => {
+        if (typeof window.nostr === 'undefined') {
+          const statusEl = document.getElementById('extensionStatus')
+          if (statusEl.className.includes('active')) {
+            updateExtensionStatus()
+          }
+        }
+      }, 2000)
+    </script>
+  </body>
+</html>

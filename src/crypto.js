@@ -4,22 +4,21 @@
  */
 
 import * as secp256k1 from '@noble/secp256k1';
+import { schnorr } from '@noble/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
+import { hmac } from '@noble/hashes/hmac';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 
-// Set the hash function for secp256k1
-secp256k1.etc.hmacSha256Sync = (key, ...msgs) => {
-  const h = sha256.create();
-  h.update(key);
-  msgs.forEach(msg => h.update(msg));
-  return h.digest();
-};
+// Set up hash functions for secp256k1 (required in v3+)
+// @noble/secp256k1 v3+ requires explicit hash function assignment for sync methods
+secp256k1.hashes.hmacSha256 = (key, msg) => hmac(sha256, key, msg);
+secp256k1.hashes.sha256 = sha256;
 
 /**
  * Generate a new Nostr keypair
  * @returns {Promise<{privateKey: string, publicKey: string}>} 64-char hex keys
  */
-export async function generateKeypair() {
+export async function generateKeypair () {
   // Generate random 32-byte private key
   const privateKeyBytes = secp256k1.utils.randomPrivateKey();
   const privateKey = bytesToHex(privateKeyBytes);
@@ -42,7 +41,7 @@ export async function generateKeypair() {
  * @param {string} privateKeyHex - 64-char hex private key
  * @returns {string} 64-char hex public key
  */
-export function getPublicKey(privateKeyHex) {
+export function getPublicKey (privateKeyHex) {
   validatePrivateKey(privateKeyHex);
 
   const privateKeyBytes = hexToBytes(privateKeyHex);
@@ -58,15 +57,21 @@ export function getPublicKey(privateKeyHex) {
  * @param {string} privateKeyHex - 64-char hex private key
  * @returns {Promise<object>} Signed event with id and sig
  */
-export async function signEvent(event, privateKeyHex) {
+export async function signEvent (event, privateKeyHex) {
   validatePrivateKey(privateKeyHex);
 
-  // Calculate event ID (sha256 of serialized event)
-  const eventId = getEventHash(event);
+  // Get public key first (needed for event hash calculation)
+  const pubkey = getPublicKey(privateKeyHex);
 
-  // Sign the event ID
+  // Calculate event ID (sha256 of serialized event)
+  // Must include pubkey in the hash according to NIP-01
+  const eventId = getEventHash({ ...event, pubkey });
+
+  // Sign the event ID (must convert hex string to bytes)
+  // Use schnorr.sign for Nostr-compatible Schnorr signatures
   const privateKeyBytes = hexToBytes(privateKeyHex);
-  const signatureBytes = await secp256k1.schnorr.sign(eventId, privateKeyBytes);
+  const eventIdBytes = hexToBytes(eventId);
+  const signatureBytes = schnorr.sign(eventIdBytes, privateKeyBytes);
   const signature = bytesToHex(signatureBytes);
 
   // Validate signature is 128-char hex (64 bytes)
@@ -74,14 +79,12 @@ export async function signEvent(event, privateKeyHex) {
     throw new Error('Invalid signature length');
   }
 
-  // Get public key
-  const pubkey = getPublicKey(privateKeyHex);
-
+  // Ensure all fields are strings (Nostr spec requires this)
   return {
     ...event,
-    id: eventId,
-    pubkey,
-    sig: signature
+    id: String(eventId),
+    pubkey: String(pubkey),
+    sig: String(signature)
   };
 }
 
@@ -90,7 +93,7 @@ export async function signEvent(event, privateKeyHex) {
  * @param {object} event - Signed event
  * @returns {Promise<boolean>} True if signature is valid
  */
-export async function verifySignature(event) {
+export async function verifySignature (event) {
   try {
     const { id, pubkey, sig } = event;
 
@@ -102,7 +105,7 @@ export async function verifySignature(event) {
     const signatureBytes = hexToBytes(sig);
     const messageBytes = hexToBytes(id);
 
-    return await secp256k1.schnorr.verify(signatureBytes, messageBytes, pubkeyBytes.slice(1));
+    return schnorr.verify(signatureBytes, messageBytes, pubkeyBytes.slice(1));
   } catch (error) {
     return false;
   }
@@ -113,7 +116,7 @@ export async function verifySignature(event) {
  * @param {object} event - Event object
  * @returns {string} 64-char hex event ID
  */
-export function getEventHash(event) {
+export function getEventHash (event) {
   // Serialize event according to NIP-01
   const serialized = JSON.stringify([
     0, // Reserved for future use
@@ -133,7 +136,7 @@ export function getEventHash(event) {
  * @param {string} privateKey - Private key to validate
  * @throws {Error} If invalid
  */
-function validatePrivateKey(privateKey) {
+function validatePrivateKey (privateKey) {
   if (typeof privateKey !== 'string') {
     throw new Error('Private key must be a string');
   }
@@ -152,7 +155,7 @@ function validatePrivateKey(privateKey) {
  * @param {string} publicKey - Public key to validate
  * @returns {boolean} True if valid
  */
-export function isValidPublicKey(publicKey) {
+export function isValidPublicKey (publicKey) {
   if (typeof publicKey !== 'string') return false;
   if (publicKey.length !== 64) return false;
   return /^[0-9a-fA-F]{64}$/.test(publicKey);
@@ -163,7 +166,7 @@ export function isValidPublicKey(publicKey) {
  * @param {string} privateKeyHex - 64-char hex private key
  * @returns {string} nsec1... format
  */
-export function privateKeyToNsec(privateKeyHex) {
+export function privateKeyToNsec (privateKeyHex) {
   // TODO: Implement bech32 encoding
   // For now, return hex with nsec prefix as placeholder
   return `nsec_${privateKeyHex}`;
@@ -174,7 +177,7 @@ export function privateKeyToNsec(privateKeyHex) {
  * @param {string} nsec - nsec1... format
  * @returns {string} 64-char hex private key
  */
-export function nsecToPrivateKey(nsec) {
+export function nsecToPrivateKey (nsec) {
   // TODO: Implement bech32 decoding
   // For now, strip nsec_ prefix as placeholder
   return nsec.replace(/^nsec_/, '');
@@ -185,7 +188,7 @@ export function nsecToPrivateKey(nsec) {
  * @param {string} publicKeyHex - 64-char hex public key
  * @returns {string} npub1... format
  */
-export function publicKeyToNpub(publicKeyHex) {
+export function publicKeyToNpub (publicKeyHex) {
   // TODO: Implement bech32 encoding
   return `npub_${publicKeyHex}`;
 }

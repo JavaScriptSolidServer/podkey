@@ -7,24 +7,30 @@ let currentScreen = 'setup';
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  console.log('[Podkey Popup] DOMContentLoaded fired');
   await checkKeypairStatus();
   setupEventListeners();
+  console.log('[Podkey Popup] Initialization complete');
 });
 
 /**
  * Check if keypair exists and show appropriate screen
  */
 async function checkKeypairStatus() {
+  console.log('[Podkey Popup] Checking keypair status...');
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' });
+    console.log('[Podkey Popup] Keypair status response:', response);
 
     if (response.exists) {
+      console.log('[Podkey Popup] Keypair exists, showing main screen');
       showMainScreen(response);
     } else {
+      console.log('[Podkey Popup] No keypair, showing setup screen');
       showSetupScreen();
     }
   } catch (error) {
-    console.error('[Podkey] Error checking keypair status:', error);
+    console.error('[Podkey Popup] Error checking keypair status:', error);
     showSetupScreen();
   }
 }
@@ -33,9 +39,13 @@ async function checkKeypairStatus() {
  * Show setup screen
  */
 function showSetupScreen() {
+  console.log('[Podkey Popup] Showing setup screen');
   hideAllScreens();
-  document.getElementById('setupScreen').style.display = 'block';
+  const setupScreen = document.getElementById('setupScreen');
+  console.log('[Podkey Popup] Setup screen element:', setupScreen);
+  setupScreen.style.display = 'block';
   currentScreen = 'setup';
+  console.log('[Podkey Popup] Setup screen display set to block');
 }
 
 /**
@@ -80,6 +90,7 @@ function hideAllScreens() {
  * Setup event listeners
  */
 function setupEventListeners() {
+  console.log('[Podkey Popup] Setting up event listeners');
   // Setup screen
   document.getElementById('generateBtn').addEventListener('click', handleGenerate);
   document.getElementById('importBtn').addEventListener('click', () => showImportScreen());

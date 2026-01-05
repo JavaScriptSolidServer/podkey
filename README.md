@@ -2,41 +2,78 @@
 
 > World-class Nostr wallet extension with Solid superpowers
 
-[![Version](https://img.shields.io/badge/version-0.0.1-blue.svg)](https://github.com/JavaScriptSolidServer/podkey)
+[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
+[![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
 
-Podkey is a beautiful, secure Nostr wallet extension that goes beyond basic key management. Built specifically for the Solid ecosystem, it provides seamless authentication to Solid pods while remaining fully compatible with the broader Nostr ecosystem.
+**Podkey** is a beautiful, secure Nostr wallet browser extension that goes beyond basic key management. Built specifically for the Solid ecosystem, it provides seamless authentication to Solid pods while remaining fully compatible with the broader Nostr ecosystem.
 
 ## ✨ What Makes Podkey Different
 
-**Better than nos2x:**
-- 🎨 Beautiful, modern UI with soft gradients
-- 🔐 Enhanced security and key management
-- ⚡ Built-in Solid authentication (NIP-98)
-- 📊 Activity logging and trust management
-- 🌈 Delightful user experience
+### Better than nos2x
 
-**Solid Superpowers:**
-- Zero-redirect authentication to Solid servers
-- Automatic signing for trusted pods
-- did:nostr identity integration
-- WebID linking (coming soon)
+- 🎨 **Beautiful, modern UI** with soft gradients and smooth animations
+- 🔐 **Enhanced security** with proper key validation and storage
+- ⚡ **Built-in Solid authentication** (NIP-98) for seamless pod access
+- 📊 **Trust management** with per-origin permissions
+- 🌈 **Delightful user experience** with intuitive design
 
-## 🚀 Features
+### Solid Superpowers
+
+- **Zero-redirect authentication** to Solid servers
+- **Automatic signing** for trusted pods
+- **did:nostr identity** integration
+- **WebID linking** (coming soon)
+
+## 🚀 Quick Start
+
+### Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/JavaScriptSolidServer/podkey.git
+   cd podkey
+   ```
+
+2. **Install dependencies:**
+
+   ```bash
+   npm install
+   ```
+
+3. **Build the extension:**
+
+   ```bash
+   npm run build
+   ```
+
+4. **Load in Chrome:**
+
+   - Open `chrome://extensions/`
+   - Enable "Developer mode" (top-right toggle)
+   - Click "Load unpacked"
+   - Select the `podkey` directory
+
+5. **Test it:**
+   - Visit the [test page](https://javascriptsolidserver.github.io/podkey/test-page/) to verify everything works
+   - Click the Podkey icon to generate or import a key
+
+## 🎯 Features
 
 ### Core Functionality
-- ✅ **NIP-07 Provider** - Full `window.nostr` API implementation
-- ✅ **Key Generation** - Secure cryptographic key generation
-- ✅ **Key Import** - Import existing keys (hex format)
-- ✅ **Event Signing** - Sign Nostr events with user permission
-- ✅ **Solid Auth** - Automatic NIP-98 authentication for Solid servers
-- ✅ **Trust Management** - Per-origin permissions
-- ✅ **Auto-Sign** - Optional automatic signing for trusted sites
-- ✅ **Beautiful UI** - Soft gradients, smooth animations
-- ✅ **64-char Hex Keys** - Proper did:nostr format
 
-### Coming Soon
+- ✅ **NIP-07 Provider** - Full `window.nostr` API implementation
+- ✅ **Key Generation** - Secure cryptographic key generation using `@noble/secp256k1`
+- ✅ **Key Import** - Import existing 64-char hex private keys
+- ✅ **Event Signing** - Sign Nostr events with Schnorr signatures
+- ✅ **Trust Management** - Per-origin permissions with auto-approval
+- ✅ **Beautiful UI** - Soft gradients, smooth animations
+- ✅ **64-char Hex Keys** - Proper did:nostr format compatibility
+
+### Roadmap
+
 - 🔜 NIP-04 encryption/decryption
 - 🔜 Multiple identity support
 - 🔜 Relay management
@@ -44,94 +81,40 @@ Podkey is a beautiful, secure Nostr wallet extension that goes beyond basic key 
 - 🔜 nsec/npub Bech32 encoding
 - 🔜 WebID linking
 - 🔜 Backup & recovery
+- 🔜 Automatic NIP-98 authentication for Solid servers
 
-## 📦 Installation
+## 📚 Usage
 
-### For Users
-
-#### Chrome/Edge/Brave
-
-1. Download or clone this repository:
-   ```bash
-   git clone https://github.com/JavaScriptSolidServer/podkey.git
-   cd podkey
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Load the extension:
-   - Open `chrome://extensions/`
-   - Enable "Developer mode"
-   - Click "Load unpacked"
-   - Select the `podkey` directory
-
-4. Pin the extension to your toolbar for easy access!
-
-#### Firefox (Coming Soon)
-
-Firefox support is planned for a future release.
-
-### For Developers
-
-```bash
-# Clone the repository
-git clone https://github.com/JavaScriptSolidServer/podkey.git
-cd podkey
-
-# Install dependencies
-npm install
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-```
-
-## 🎯 Quick Start
-
-### First Time Setup
-
-1. Click the Podkey icon in your browser toolbar
-2. Choose one of two options:
-   - **Generate New Key** - Creates a fresh Nostr keypair
-   - **Import Existing Key** - Import your 64-char hex private key
-
-3. Your identity is now ready! 🎉
-
-### Using with Nostr Apps
-
-Podkey provides the standard `window.nostr` API. Any Nostr app that supports NIP-07 will work automatically:
+### Basic API
 
 ```javascript
-// Get public key
-const pubkey = await window.nostr.getPublicKey();
+// Check if Podkey is available
+if (window.nostr) {
+  // Get your public key
+  const pubkey = await window.nostr.getPublicKey()
+  console.log('Your public key:', pubkey)
 
-// Sign an event
-const event = {
-  kind: 1,
-  created_at: Math.floor(Date.now() / 1000),
-  tags: [],
-  content: "Hello from Podkey!"
-};
+  // Sign an event
+  const event = {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [],
+    content: 'Hello from Podkey! 🔑'
+  }
 
-const signedEvent = await window.nostr.signEvent(event);
+  const signed = await window.nostr.signEvent(event)
+  console.log('Signed event:', signed)
+}
 ```
 
-### Using with Solid Servers
+### Testing
 
-When accessing protected resources on a Solid server, Podkey automatically:
+Visit the [interactive test page](https://javascriptsolidserver.github.io/podkey/test-page/) to:
 
-1. Detects the 401 authentication requirement
-2. Prompts you to trust the origin (first time only)
-3. Signs an NIP-98 HTTP authentication event
-4. Retries the request with the signed header
-5. Grants you access! ✨
-
-**No OAuth redirects. No IdP accounts. Just seamless authentication.**
+- Verify extension installation
+- Test key generation and import
+- Test event signing with various event types
+- View real-time diagnostics and logs
 
 ## 🏗️ Architecture
 
@@ -150,118 +133,26 @@ When accessing protected resources on a Solid server, Podkey automatically:
 │                                         │
 │  ┌───────────────────────────────────┐  │
 │  │  Background Worker (src/)         │  │
-│  │  - Key storage (crypto.js)        │  │
+│  │  - Key storage (storage.js)       │  │
 │  │  - Event signing (crypto.js)      │  │
 │  │  - Permission management          │  │
-│  │  - Solid auto-auth                │  │
 │  └───────────────────────────────────┘  │
 │                                         │
 │  ┌───────────────────────────────────┐  │
-│  │  Content Script (src/injected.js) │  │
+│  │  Content Script (src/injected.js)│  │
 │  │  - Injects window.nostr           │  │
 │  │  - Bridges page ↔ extension       │  │
 │  └───────────────────────────────────┘  │
-└─────────────────────────────────────────┘
-              ↓
-┌─────────────────────────────────────────┐
-│  Web Page (any site)                    │
-│  - Accesses window.nostr API            │
-│  - Signs events via Podkey              │
-│  - Auto-authenticates to Solid          │
 └─────────────────────────────────────────┘
 ```
 
 ### Security Model
 
-- 🔒 **Private keys never leave the extension** - Stored in Chrome's local storage
-- 🔒 **User permission required** - Every signing operation requires approval
+- 🔒 **Private keys never leave the extension** - Stored in Chrome's secure local storage
+- 🔒 **User permission required** - Every signing operation requires approval (auto-approved for now)
 - 🔒 **Per-origin trust** - Granular permissions for each website
-- 🔒 **Auto-sign opt-in** - Automatic signing only for explicitly trusted origins
 - 🔒 **64-char hex validation** - All keys validated for proper did:nostr format
-- 🔒 **Secure event signing** - Uses `@noble/secp256k1` for all cryptography
-
-## 📚 API Reference
-
-### window.nostr
-
-Podkey implements the full [NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md) specification:
-
-#### `getPublicKey()`
-
-Returns the user's public key (64-char hex).
-
-```javascript
-const pubkey = await window.nostr.getPublicKey();
-// "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d"
-```
-
-#### `signEvent(event)`
-
-Signs a Nostr event.
-
-```javascript
-const event = {
-  kind: 1,
-  created_at: 1704451200,
-  tags: [["t", "nostr"]],
-  content: "Hello Nostr!"
-};
-
-const signed = await window.nostr.signEvent(event);
-// {
-//   ...event,
-//   id: "...",
-//   pubkey: "...",
-//   sig: "..."
-// }
-```
-
-#### `getRelays()` (Coming Soon)
-
-Returns user's relay configuration.
-
-#### `nip04.encrypt()` / `nip04.decrypt()` (Coming Soon)
-
-NIP-04 encryption and decryption.
-
-## 🔐 did:nostr Identity
-
-Podkey ensures all public keys are proper 64-character hexadecimal strings, making them compatible with the [did:nostr](https://github.com/w3c-ccg/did-method-nostr) specification:
-
-```javascript
-const pubkey = await window.nostr.getPublicKey();
-const did = `did:nostr:${pubkey}`;
-
-console.log(did);
-// did:nostr:3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d
-```
-
-This enables:
-- ✅ Decentralized identity
-- ✅ WebID linking (future)
-- ✅ Cross-platform identity portability
-- ✅ Solid pod authentication
-
-## 🎨 UI Screenshots
-
-### Setup Screen
-Beautiful onboarding with soft gradients:
-- Generate new keys
-- Import existing keys
-- Clear explanations
-
-### Main Screen
-Elegant identity management:
-- Public key & DID display
-- Copy with one click
-- Trust management
-- Auto-sign toggle
-
-### Identity Card
-Soft yellow-to-blue gradient showcasing:
-- Your 64-char hex public key
-- Your did:nostr identifier
-- Quick copy button
+- 🔒 **Secure event signing** - Uses `@noble/secp256k1` v3.0.0 with Schnorr signatures
 
 ## 🛠️ Development
 
@@ -281,36 +172,100 @@ podkey/
 │   ├── popup.html         # Popup UI structure
 │   ├── popup.css          # Beautiful styling
 │   └── popup.js           # Popup logic
-├── icons/                 # Extension icons
-└── test/                  # Test suite
+├── test-page/
+│   └── index.html         # Interactive test page
+├── scripts/
+│   └── bundle.js          # Build script for dependencies
+└── icons/                 # Extension icons
 ```
 
 ### Tech Stack
 
-- **Cryptography**: [@noble/secp256k1](https://github.com/paulmillr/noble-secp256k1)
-- **Hashing**: [@noble/hashes](https://github.com/paulmillr/noble-hashes)
+- **Cryptography**: [@noble/secp256k1](https://github.com/paulmillr/noble-secp256k1) v3.0.0
+- **Hashing**: [@noble/hashes](https://github.com/paulmillr/noble-hashes) v1.8.0
+- **Bundling**: [esbuild](https://esbuild.github.io/)
 - **Storage**: Chrome Storage API
 - **UI**: Vanilla JavaScript + CSS Gradients
 - **Manifest**: V3 (latest)
 
-### Testing
+### Building
 
 ```bash
-# Run all tests
-npm test
+# Install dependencies
+npm install
 
-# Run specific test
-node --test test/crypto.test.js
-```
+# Build the extension (bundles dependencies)
+npm run build
 
-### Code Quality
-
-```bash
 # Lint code
 npm run lint
 
-# Format code
-npm run format
+# Run tests
+npm test
+```
+
+### Testing
+
+1. **Build the extension:**
+
+   ```bash
+   npm run build
+   ```
+
+2. **Load in Chrome** (see Installation above)
+
+3. **Visit the test page:**
+
+   - Local: Open `test-page/index.html` in your browser
+   - Online: https://javascriptsolidserver.github.io/podkey/test-page/
+
+4. **Check the console** for any errors
+
+## 🔐 did:nostr Identity
+
+Podkey ensures all public keys are proper 64-character hexadecimal strings, making them compatible with the [did:nostr](https://github.com/w3c-ccg/did-method-nostr) specification:
+
+```javascript
+const pubkey = await window.nostr.getPublicKey()
+const did = `did:nostr:${pubkey}`
+// did:nostr:3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d
+```
+
+This enables:
+
+- ✅ Decentralized identity
+- ✅ Cross-platform identity portability
+- ✅ Solid pod authentication (future)
+
+## 📖 API Reference
+
+### `window.nostr.getPublicKey()`
+
+Returns the user's public key (64-char hex).
+
+```javascript
+const pubkey = await window.nostr.getPublicKey()
+```
+
+### `window.nostr.signEvent(event)`
+
+Signs a Nostr event. Shows permission prompt if origin is not trusted.
+
+```javascript
+const signed = await window.nostr.signEvent({
+  kind: 1,
+  created_at: Math.floor(Date.now() / 1000),
+  tags: [],
+  content: 'Hello!'
+})
+```
+
+### `window.nostr.getRelays()`
+
+Returns relay configuration (coming soon).
+
+```javascript
+const relays = await window.nostr.getRelays()
 ```
 
 ## 🤝 Contributing
@@ -334,40 +289,34 @@ We love contributions! Here's how to get started:
 - 🌐 i18n/localization
 - ✨ NIP-04 encryption
 - 🔧 Bug fixes
-
-## 📖 Resources
-
-### Nostr
-- [NIP-07: window.nostr](https://github.com/nostr-protocol/nips/blob/master/07.md)
-- [NIP-98: HTTP Auth](https://github.com/nostr-protocol/nips/blob/master/98.md)
-- [Nostr Protocol](https://github.com/nostr-protocol/nostr)
-
-### Solid
-- [Solid Project](https://solidproject.org/)
-- [Solid-OIDC Spec](https://solid.github.io/solid-oidc/)
-- [did:nostr Method](https://github.com/w3c-ccg/did-method-nostr)
-
-### Related Projects
-- [nos2x](https://github.com/fiatjaf/nos2x) - Original NIP-07 extension
-- [Alby](https://getalby.com/) - Bitcoin Lightning & Nostr wallet
-- [JavaScriptSolidServer](https://github.com/JavaScriptSolidServer/JavaScriptSolidServer) - Solid server with NIP-98 support
+- 🚀 Performance improvements
 
 ## 🐛 Troubleshooting
 
 ### Extension doesn't show up
+
 - Make sure Developer Mode is enabled in `chrome://extensions/`
 - Check that you selected the correct directory
 - Look for errors in the Chrome console
 
 ### window.nostr is undefined
+
 - Reload the page after installing Podkey
 - Check that the extension is enabled
 - Look for conflicts with other Nostr extensions
+- Check the browser console for errors
 
 ### Events not signing
-- Check that you've generated or imported a key
+
+- Make sure you've generated or imported a key
+- Check the extension console (click "service worker" in chrome://extensions)
 - Look for permission prompts that may be blocked
-- Check the extension console for errors
+
+### Build errors
+
+- Make sure all dependencies are installed: `npm install`
+- Check Node.js version (needs >= 18.0.0)
+- Try deleting `node_modules` and `package-lock.json`, then `npm install` again
 
 ## 📄 License
 
@@ -376,7 +325,7 @@ MIT License - see [LICENSE](LICENSE) for details
 ## 🙏 Acknowledgments
 
 - Built with 💜 for the Nostr and Solid communities
-- Inspired by nos2x and the NIP-07 specification
+- Inspired by [nos2x](https://github.com/fiatjaf/nos2x) and the NIP-07 specification
 - Part of the [JavaScriptSolidServer](https://github.com/JavaScriptSolidServer) ecosystem
 - Cryptography powered by [@noble](https://github.com/paulmillr/noble-secp256k1)
 
@@ -384,11 +333,12 @@ MIT License - see [LICENSE](LICENSE) for details
 
 - **GitHub**: https://github.com/JavaScriptSolidServer/podkey
 - **Issues**: https://github.com/JavaScriptSolidServer/podkey/issues
-- **NPM**: https://www.npmjs.com/package/podkey (coming soon)
-- **Docs**: https://github.com/JavaScriptSolidServer/podkey/wiki (coming soon)
+- **Test Page**: https://javascriptsolidserver.github.io/podkey/test-page/
+- **NIP-07 Spec**: https://github.com/nostr-protocol/nips/blob/master/07.md
+- **NIP-98 Spec**: https://github.com/nostr-protocol/nips/blob/master/98.md
 
 ---
 
 **Made with 🔑 by the JavaScriptSolidServer team**
 
-*Podkey v0.0.1 - Your keys, your identity, your data*
+_Podkey v0.1.0 - Your keys, your identity, your data_

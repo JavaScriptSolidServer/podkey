@@ -3,7 +3,7 @@
  * Injected into all web pages to provide Nostr signing capabilities
  */
 
-(function() {
+(function () {
   'use strict';
 
   // Only inject once
@@ -20,7 +20,7 @@
      * Get the user's public key
      * @returns {Promise<string>} 64-char hex public key
      */
-    async getPublicKey() {
+    async getPublicKey () {
       return sendMessageToExtension({ type: 'GET_PUBLIC_KEY' });
     },
 
@@ -29,7 +29,7 @@
      * @param {object} event - Unsigned event
      * @returns {Promise<object>} Signed event with id, pubkey, sig
      */
-    async signEvent(event) {
+    async signEvent (event) {
       // Validate event structure
       if (!event || typeof event !== 'object') {
         throw new Error('Event must be an object');
@@ -61,7 +61,7 @@
      * Get relays (optional NIP-07 extension)
      * @returns {Promise<object>} Relay configuration
      */
-    async getRelays() {
+    async getRelays () {
       return sendMessageToExtension({ type: 'GET_RELAYS' });
     },
 
@@ -71,7 +71,7 @@
      * @param {string} plaintext - Message to encrypt
      * @returns {Promise<string>} Encrypted message
      */
-    async nip04 = {
+    nip04: {
       encrypt: async (pubkey, plaintext) => {
         return sendMessageToExtension({
           type: 'NIP04_ENCRYPT',
@@ -95,7 +95,7 @@
    * @param {object} message - Message to send
    * @returns {Promise<any>} Response from extension
    */
-  async function sendMessageToExtension(message) {
+  async function sendMessageToExtension (message) {
     return new Promise((resolve, reject) => {
       // Create custom event to communicate with content script
       const eventId = Math.random().toString(36).substring(7);

@@ -1,6 +1,6 @@
 {
   "name": "podkey",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "World-class Nostr wallet extension with Solid superpowers - NIP-07 provider + auto-authentication",
   "main": "src/index.js",
   "type": "module",
@@ -34,10 +34,11 @@
   },
   "homepage": "https://github.com/JavaScriptSolidServer/podkey#readme",
   "dependencies": {
-    "@noble/secp256k1": "^2.0.0",
-    "@noble/hashes": "^1.3.3"
+    "@noble/hashes": "^1.3.3",
+    "@noble/secp256k1": "^3.0.0"
   },
   "devDependencies": {
+    "esbuild": "^0.27.2",
     "eslint": "^8.56.0"
   },
   "engines": {
