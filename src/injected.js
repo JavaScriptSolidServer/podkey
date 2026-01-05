@@ -21,14 +21,16 @@
     getAuthHeaderFn = fn;
   }
 
-  // Intercept fetch - synchronous wrapper, async implementation
+  // Intercept fetch - MUST replace immediately to catch all calls
+  // This runs synchronously, so it catches fetch even if called immediately
   window.fetch = function (url, options = {}) {
     const urlString = typeof url === 'string' ? url : url.toString();
-    console.log('[Podkey] 🔍 fetch() called:', urlString, options.method || 'GET');
-    
+    const method = options?.method || 'GET';
+    console.log('[Podkey] 🔍 fetch() intercepted:', urlString, method);
+
     // If we have the auth function, use it
-    if (getAuthHeaderFn) {
-      console.log('[Podkey] Auth function available, adding header...');
+    if (authFunctionReady && getAuthHeaderFn) {
+      console.log('[Podkey] ✅ Auth function ready, adding header...');
       const promise = (async () => {
         try {
           const authHeader = await getAuthHeaderFn(url, options.method || 'GET', options.body);
@@ -50,7 +52,7 @@
         }
         return originalFetch.call(this, url, options);
       })();
-      
+
       // Handle 401 retry
       return promise.then(response => {
         if (response.status === 401 && getAuthHeaderFn) {
@@ -84,10 +86,46 @@
         return response;
       });
     }
-    
-    // Fallback if auth function not ready yet
-    console.log('[Podkey] ⚠️ Auth function not ready yet, making request without auth');
-    return originalFetch.call(this, url, options);
+
+    // Fallback if auth function not ready yet - but still try to get auth
+    console.log('[Podkey] ⚠️ Auth function not ready yet, making request...');
+
+    // Even if not ready, try to get auth header asynchronously and retry on 401
+    const requestPromise = originalFetch.call(this, url, options);
+
+    // If we get a 401 and auth becomes available, retry
+    return requestPromise.then(response => {
+      if (response.status === 401) {
+        console.log('[Podkey] 🔄 Got 401, checking if auth function is ready now...');
+        // Wait a bit for auth function to be ready, then retry
+        return new Promise((resolve) => {
+          const checkAuth = () => {
+            if (authFunctionReady && getAuthHeaderFn) {
+              console.log('[Podkey] 🔄 Auth function now ready, retrying with NIP-98...');
+              getAuthHeaderFn(url, method, options?.body).then(authHeader => {
+                if (authHeader) {
+                  const retryOptions = { ...options };
+                  retryOptions.headers = retryOptions.headers || {};
+                  if (retryOptions.headers instanceof Headers) {
+                    retryOptions.headers.set('Authorization', authHeader);
+                  } else {
+                    retryOptions.headers['Authorization'] = authHeader;
+                  }
+                  originalFetch.call(this, url, retryOptions).then(resolve);
+                } else {
+                  resolve(response);
+                }
+              });
+            } else {
+              // Check again in 100ms
+              setTimeout(checkAuth, 100);
+            }
+          };
+          checkAuth();
+        });
+      }
+      return response;
+    });
   };
 
   // Intercept XMLHttpRequest
@@ -118,6 +156,51 @@
 
   console.log('[Podkey] ✅ Synchronous interception setup complete');
 })();
+
+// Inject NIP-98 interceptor FIRST (must run before any page code)
+const interceptorScript = document.createElement('script');
+interceptorScript.src = chrome.runtime.getURL('src/nip98-interceptor.js');
+interceptorScript.onload = function () {
+  this.remove();
+};
+interceptorScript.onerror = function () {
+  console.error('[Podkey] Failed to load nip98-interceptor.js');
+};
+(document.head || document.documentElement).appendChild(interceptorScript);
+
+// Listen for NIP-98 auth requests from page context
+window.addEventListener('podkey-nip98-request', async (event) => {
+  const { id, url, method, body } = event.detail;
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: 'CREATE_NIP98_AUTH_HEADER',
+      url,
+      method,
+      body
+    });
+
+    if (chrome.runtime.lastError) {
+      throw new Error(chrome.runtime.lastError.message);
+    }
+
+    // Send response back to page context
+    window.dispatchEvent(new CustomEvent('podkey-nip98-response', {
+      detail: {
+        id,
+        result: response || null
+      }
+    }));
+  } catch (error) {
+    console.error('[Podkey] Error handling NIP-98 request:', error);
+    window.dispatchEvent(new CustomEvent('podkey-nip98-response', {
+      detail: {
+        id,
+        result: null
+      }
+    }));
+  }
+});
 
 // Inject the nostr provider script into the page
 const script = document.createElement('script');

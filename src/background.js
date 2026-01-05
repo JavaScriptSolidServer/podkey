@@ -426,9 +426,13 @@ async function createNip98AuthHeader (url, method, body = null) {
       });
 
       console.log('[Podkey] Created and signed NIP-98 auth event for', url);
+      console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent, null, 2));
+      console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
     }
 
-    return `Nostr ${encodeNip98Header(signedEvent)}`;
+    const authHeader = `Nostr ${encodeNip98Header(signedEvent)}`;
+    console.log('[Podkey] Authorization header (first 100 chars):', authHeader.substring(0, 100) + '...');
+    return authHeader;
   } catch (error) {
     console.error('[Podkey] Error creating NIP-98 auth header:', error);
     return null;
