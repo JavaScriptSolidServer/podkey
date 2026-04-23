@@ -12,6 +12,75 @@
   const originalFetch = window.fetch;
   const originalXHROpen = XMLHttpRequest.prototype.open;
   const originalXHRSend = XMLHttpRequest.prototype.send;
+  const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+
+  // Duplicate of src/auth-header-utils.js — keep in sync. The canonical
+  // module is imported by unit tests; this copy runs in content-script
+  // context where classic scripts can't use ESM imports. Build-time
+  // bundling to drop the duplication is tracked in #7.
+  function hasAuthorizationHeader (headers) {
+    if (!headers) return false;
+    if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+      return headers.has('authorization');
+    }
+    if (Array.isArray(headers)) {
+      return headers.some((entry) =>
+        Array.isArray(entry) && typeof entry[0] === 'string' &&
+        entry[0].toLowerCase() === 'authorization'
+      );
+    }
+    if (typeof headers === 'object') {
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() === 'authorization') return true;
+      }
+    }
+    return false;
+  }
+
+  // Per fetch spec, init.headers overrides Request.headers entirely — so
+  // init.headers is authoritative when present. Only consult input.headers
+  // when init omits the headers key.
+  function fetchCallHasAuthorization (input, init) {
+    if (init && Object.prototype.hasOwnProperty.call(init, 'headers')) {
+      return hasAuthorizationHeader(init.headers);
+    }
+    if (typeof Request !== 'undefined' && input instanceof Request) {
+      return hasAuthorizationHeader(input.headers);
+    }
+    return false;
+  }
+
+  function setAuthorizationOnOptions (options, value) {
+    options.headers = options.headers || {};
+    if (typeof Headers !== 'undefined' && options.headers instanceof Headers) {
+      options.headers.set('Authorization', value);
+    } else if (Array.isArray(options.headers)) {
+      const normalized = new Headers(options.headers);
+      normalized.set('Authorization', value);
+      options.headers = normalized;
+    } else {
+      for (const key of Object.keys(options.headers)) {
+        if (key.toLowerCase() === 'authorization') delete options.headers[key];
+      }
+      options.headers['Authorization'] = value;
+    }
+    return options.headers;
+  }
+
+  function normalizeFetchCall (input, init) {
+    if (typeof Request !== 'undefined' && input instanceof Request) {
+      return {
+        url: input.url,
+        method: init?.method || input.method || 'GET',
+        body: init?.body
+      };
+    }
+    return {
+      url: typeof input === 'string' ? input : String(input),
+      method: init?.method || 'GET',
+      body: init?.body
+    };
+  }
 
   // Helper to get auth header (will be async, but we'll handle that)
   let getAuthHeaderFn = null;
@@ -24,26 +93,31 @@
   // Intercept fetch - MUST replace immediately to catch all calls
   // This runs synchronously, so it catches fetch even if called immediately
   window.fetch = function (url, options = {}) {
-    const urlString = typeof url === 'string' ? url : url.toString();
-    const method = options?.method || 'GET';
+    // Default-param `= {}` only applies for `undefined`; `fetch(url, null)`
+    // passes null through. Coerce once so the rest of the wrapper can
+    // assume an object.
+    options = options || {};
+    // Normalize once — handles fetch(url, init) and fetch(new Request(...))
+    // so downstream signing sees the real URL/method, not "[object Request]".
+    const { url: urlString, method, body } = normalizeFetchCall(url, options);
     console.log('[Podkey] 🔍 fetch() intercepted:', urlString, method);
 
+    // Respect an Authorization header the page already set — on either
+    // options.headers or a Request input (e.g. Solid-OIDC DPoP). Overwriting
+    // would re-identify the request as Podkey's NIP-98 and break the page's
+    // own auth. If it fails with 401, the retry path below still injects
+    // NIP-98. See issue #5.
+    const pageSetAuth = fetchCallHasAuthorization(url, options);
+
     // If we have the auth function, use it
-    if (authFunctionReady && getAuthHeaderFn) {
+    if (getAuthHeaderFn && !pageSetAuth) {
       console.log('[Podkey] ✅ Auth function ready, adding header...');
       const promise = (async () => {
         try {
-          const authHeader = await getAuthHeaderFn(url, options.method || 'GET', options.body);
+          const authHeader = await getAuthHeaderFn(urlString, method, body);
           if (authHeader) {
-            options = options || {};
-            options.headers = options.headers || {};
-            if (options.headers instanceof Headers) {
-              options.headers.set('Authorization', authHeader);
-              console.log('[Podkey] ✅ Added NIP-98 auth header (Headers)');
-            } else {
-              options.headers['Authorization'] = authHeader;
-              console.log('[Podkey] ✅ Added NIP-98 auth header (object)');
-            }
+            setAuthorizationOnOptions(options, authHeader);
+            console.log('[Podkey] ✅ Added NIP-98 auth header');
           } else {
             console.log('[Podkey] ⚠️ No auth header returned (will retry on 401)');
           }
@@ -59,15 +133,10 @@
           console.log('[Podkey] 🔄 401 detected, retrying with auth...');
           return (async () => {
             try {
-              const authHeader = await getAuthHeaderFn(url, options.method || 'GET', options.body);
+              const authHeader = await getAuthHeaderFn(urlString, method, body);
               if (authHeader) {
                 const retryOptions = { ...options };
-                retryOptions.headers = retryOptions.headers || {};
-                if (retryOptions.headers instanceof Headers) {
-                  retryOptions.headers.set('Authorization', authHeader);
-                } else {
-                  retryOptions.headers['Authorization'] = authHeader;
-                }
+                setAuthorizationOnOptions(retryOptions, authHeader);
                 console.log('[Podkey] 🔄 Retrying with NIP-98 auth...');
                 const retryResponse = await originalFetch.call(this, url, retryOptions);
                 if (retryResponse.status === 200 || retryResponse.status === 201) {
@@ -87,35 +156,55 @@
       });
     }
 
-    // Fallback if auth function not ready yet - but still try to get auth
-    console.log('[Podkey] ⚠️ Auth function not ready yet, making request...');
+    // Fall-through branch: we're here because either the page set its own
+    // Authorization (and we deliberately skipped initial injection) or the
+    // auth function isn't wired up yet. Send the request as-is; on 401,
+    // retry with NIP-98 — either immediately if ready, or after waiting
+    // for setup (with a hard deadline so we don't hang forever).
+    if (pageSetAuth) {
+      console.log('[Podkey] ⏭️ Page already set Authorization — skipping initial injection');
+    } else {
+      console.log('[Podkey] ⚠️ Auth function not ready yet, making request...');
+    }
 
-    // Even if not ready, try to get auth header asynchronously and retry on 401
     const requestPromise = originalFetch.call(this, url, options);
+
+    const AUTH_READY_DEADLINE_MS = 5000;
 
     // If we get a 401 and auth becomes available, retry
     return requestPromise.then(response => {
       if (response.status === 401) {
         console.log('[Podkey] 🔄 Got 401, checking if auth function is ready now...');
-        // Wait a bit for auth function to be ready, then retry
+        // Wait for auth function to be ready, bounded by deadline. Every
+        // async step below has an error handler so the outer promise is
+        // guaranteed to settle (otherwise the caller would hang).
         return new Promise((resolve) => {
+          const deadline = Date.now() + AUTH_READY_DEADLINE_MS;
           const checkAuth = () => {
-            if (authFunctionReady && getAuthHeaderFn) {
+            if (getAuthHeaderFn) {
               console.log('[Podkey] 🔄 Auth function now ready, retrying with NIP-98...');
-              getAuthHeaderFn(url, method, options?.body).then(authHeader => {
-                if (authHeader) {
-                  const retryOptions = { ...options };
-                  retryOptions.headers = retryOptions.headers || {};
-                  if (retryOptions.headers instanceof Headers) {
-                    retryOptions.headers.set('Authorization', authHeader);
+              getAuthHeaderFn(urlString, method, body)
+                .then(authHeader => {
+                  if (authHeader) {
+                    const retryOptions = { ...options };
+                    setAuthorizationOnOptions(retryOptions, authHeader);
+                    originalFetch.call(this, url, retryOptions)
+                      .then(resolve)
+                      .catch(err => {
+                        console.error('[Podkey] Retry fetch failed:', err);
+                        resolve(response);
+                      });
                   } else {
-                    retryOptions.headers['Authorization'] = authHeader;
+                    resolve(response);
                   }
-                  originalFetch.call(this, url, retryOptions).then(resolve);
-                } else {
+                })
+                .catch(err => {
+                  console.error('[Podkey] Error getting auth header for retry:', err);
                   resolve(response);
-                }
-              });
+                });
+            } else if (Date.now() >= deadline) {
+              console.log('[Podkey] ⚠️ Auth function still not ready after deadline, giving up');
+              resolve(response);
             } else {
               // Check again in 100ms
               setTimeout(checkAuth, 100);
@@ -132,23 +221,38 @@
   XMLHttpRequest.prototype.open = function (method, url, ...args) {
     this._podkeyMethod = method;
     this._podkeyUrl = url;
+    this._podkeyHasPageAuth = false;
     return originalXHROpen.apply(this, [method, url, ...args]);
   };
 
-  XMLHttpRequest.prototype.send = function (body) {
-    if (getAuthHeaderFn && this._podkeyUrl) {
-      (async () => {
-        try {
-          const authHeader = await getAuthHeaderFn(this._podkeyUrl, this._podkeyMethod, body);
-          if (authHeader) {
-            this.setRequestHeader('Authorization', authHeader);
-          }
-        } catch (e) {
-          console.error('[Podkey] Error in XHR interceptor:', e);
-        }
-      })();
+  // Track a page-set Authorization on XHR so send() can respect it.
+  XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+    if (typeof name === 'string' && name.toLowerCase() === 'authorization') {
+      this._podkeyHasPageAuth = true;
     }
-    return originalXHRSend.apply(this, [body]);
+    return originalXHRSetRequestHeader.apply(this, arguments);
+  };
+
+  XMLHttpRequest.prototype.send = function (body) {
+    // setRequestHeader must run before send(); defer originalXHRSend until
+    // the header is applied (or skipped), else the async setRequestHeader
+    // would fire after the request is already in-flight and throw
+    // InvalidStateError.
+    const runSend = () => originalXHRSend.apply(this, [body]);
+    if (getAuthHeaderFn && this._podkeyUrl && !this._podkeyHasPageAuth) {
+      getAuthHeaderFn(this._podkeyUrl, this._podkeyMethod, body)
+        .then(authHeader => {
+          if (authHeader) {
+            originalXHRSetRequestHeader.call(this, 'Authorization', authHeader);
+          }
+        })
+        .catch(e => {
+          console.error('[Podkey] Error in XHR interceptor:', e);
+        })
+        .finally(runSend);
+    } else {
+      runSend();
+    }
   };
 
   // Expose setter for the auth function
