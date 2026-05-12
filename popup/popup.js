@@ -219,10 +219,15 @@ async function handleExport() {
   if (!confirmed) return;
 
   try {
-    const { podkey_private_key: privateKey } = await chrome.storage.local.get(['podkey_private_key']);
+    // Private key is now stored in session storage (in-memory only).
+    // Try session storage first, fall back to local for legacy installs.
+    let { podkey_private_key: privateKey } = await chrome.storage.session.get(['podkey_private_key']);
+    if (!privateKey) {
+      ({ podkey_private_key: privateKey } = await chrome.storage.local.get(['podkey_private_key']));
+    }
 
     if (!privateKey) {
-      alert('No private key found');
+      alert('No private key found. The key may have been cleared when the browser restarted. Please re-import your key.');
       return;
     }
 
@@ -282,9 +287,9 @@ async function removeTrustedSite(origin) {
   console.log('[Podkey] Removed trusted site:', origin);
 }
 
-// Listen for storage changes
+// Listen for storage changes (local for trusted sites / pubkey, session for private key)
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && currentScreen === 'main') {
+  if ((areaName === 'local' || areaName === 'session') && currentScreen === 'main') {
     loadTrustedSites();
   }
 });
