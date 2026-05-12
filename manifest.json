@@ -3,6 +3,9 @@
   "name": "Podkey",
   "version": "0.0.7",
   "description": "did:nostr and Solid authentication extension - NIP-07 wallet for decentralized identity",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  },
   "permissions": [
     "storage",
     "webRequest"
