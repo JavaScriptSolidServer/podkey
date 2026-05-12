@@ -7,8 +7,7 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "permissions": [
-    "storage",
-    "webRequest"
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
