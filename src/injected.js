@@ -314,17 +314,47 @@ script.onload = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
+// Allowed message types that can be forwarded to the background script
+const ALLOWED_TYPES = new Set([
+  'GET_PUBLIC_KEY',
+  'SIGN_EVENT',
+  'GET_RELAYS',
+  'NIP04_ENCRYPT',
+  'NIP04_DECRYPT',
+  'NIP44_ENCRYPT',
+  'NIP44_DECRYPT'
+]);
+
 // Listen for requests from the injected script
 window.addEventListener('podkey-request', async (event) => {
   const { id, type, ...data } = event.detail;
 
   console.log('[Podkey] Received request:', type, 'from page');
 
+  if (!ALLOWED_TYPES.has(type)) {
+    console.warn('[Podkey] Rejected unknown request type:', type);
+    window.dispatchEvent(new CustomEvent('podkey-response', {
+      detail: { id, error: 'Unknown request type' }
+    }));
+    return;
+  }
+
+  // Only forward known safe fields per message type
+  const safeData = {};
+  if (type === 'SIGN_EVENT' && data.event) {
+    safeData.event = data.event;
+  } else if ((type === 'NIP04_ENCRYPT' || type === 'NIP04_DECRYPT' ||
+              type === 'NIP44_ENCRYPT' || type === 'NIP44_DECRYPT')) {
+    if (data.peer) safeData.peer = String(data.peer);
+    if (data.plaintext !== undefined) safeData.plaintext = String(data.plaintext || '');
+    if (data.ciphertext !== undefined) safeData.ciphertext = String(data.ciphertext);
+  }
+
   try {
-    // Forward to background script
+    // Forward to background script with only validated fields
     const response = await chrome.runtime.sendMessage({
       type,
-      ...data,
+      ...safeData,
       origin: window.location.origin
     });
 
