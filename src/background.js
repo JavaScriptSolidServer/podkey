@@ -330,16 +330,23 @@ function encodeNip98Header (signedEvent) {
  * @returns {boolean}
  */
 function isLikelySolidServer (origin) {
-  // Common Solid server indicators
-  const solidIndicators = [
+  let hostname;
+  try {
+    hostname = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+
+  const trustedHosts = [
     'solid.social',
     'solidcommunity.net',
     'inrupt.net',
-    'solidweb.org',
-    '/.well-known/solid'
+    'solidweb.org'
   ];
 
-  return solidIndicators.some(indicator => origin.includes(indicator));
+  return trustedHosts.some(trusted =>
+    hostname === trusted || hostname.endsWith('.' + trusted)
+  );
 }
 
 async function createNip98AuthHeader (url, method, body = null) {
