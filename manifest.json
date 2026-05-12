@@ -4,8 +4,7 @@
   "version": "0.0.7",
   "description": "did:nostr and Solid authentication extension - NIP-07 wallet for decentralized identity",
   "permissions": [
-    "storage",
-    "webRequest"
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
