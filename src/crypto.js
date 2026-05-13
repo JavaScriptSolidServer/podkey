@@ -161,35 +161,3 @@ export function isValidPublicKey (publicKey) {
   if (publicKey.length !== 64) return false;
   return /^[0-9a-fA-F]{64}$/.test(publicKey);
 }
-
-/**
- * Convert private key to nsec format (Bech32)
- * @param {string} privateKeyHex - 64-char hex private key
- * @returns {string} nsec1... format
- */
-export function privateKeyToNsec (privateKeyHex) {
-  // TODO: Implement bech32 encoding
-  // For now, return hex with nsec prefix as placeholder
-  return `nsec_${privateKeyHex}`;
-}
-
-/**
- * Convert nsec to private key hex
- * @param {string} nsec - nsec1... format
- * @returns {string} 64-char hex private key
- */
-export function nsecToPrivateKey (nsec) {
-  // TODO: Implement bech32 decoding
-  // For now, strip nsec_ prefix as placeholder
-  return nsec.replace(/^nsec_/, '');
-}
-
-/**
- * Convert public key to npub format (Bech32)
- * @param {string} publicKeyHex - 64-char hex public key
- * @returns {string} npub1... format
- */
-export function publicKeyToNpub (publicKeyHex) {
-  // TODO: Implement bech32 encoding
-  return `npub_${publicKeyHex}`;
-}
