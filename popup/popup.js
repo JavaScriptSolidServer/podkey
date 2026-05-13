@@ -247,23 +247,28 @@ async function loadTrustedSites() {
     return;
   }
 
-  listEl.innerHTML = origins
-    .sort()
-    .map(origin => `
-      <div class="trusted-item">
-        <span class="trusted-origin">${origin}</span>
-        <button class="btn-remove" data-origin="${origin}">Remove</button>
-      </div>
-    `)
-    .join('');
+  listEl.innerHTML = '';
+  origins.sort().forEach(origin => {
+    const div = document.createElement('div');
+    div.className = 'trusted-item';
 
-  // Add remove button handlers
-  listEl.querySelectorAll('.btn-remove').forEach(btn => {
+    const span = document.createElement('span');
+    span.className = 'trusted-origin';
+    span.textContent = origin;
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-remove';
+    btn.dataset.origin = origin;
+    btn.textContent = 'Remove';
+
     btn.addEventListener('click', async () => {
-      const origin = btn.dataset.origin;
       await removeTrustedSite(origin);
       await loadTrustedSites(); // Reload
     });
+
+    div.appendChild(span);
+    div.appendChild(btn);
+    listEl.appendChild(div);
   });
 }
 
