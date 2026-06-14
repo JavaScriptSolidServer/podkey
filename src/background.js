@@ -17,9 +17,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 
 console.log('[Podkey] Background service worker started');
 
-// NIP-98 auth event cache: key = `${url}:${method}:${bodyHash}`, value = { event, expires }
-const nip98Cache = new Map();
-const CACHE_TTL = 60000; // 60 seconds
+// NIP-98 events are always created fresh to avoid replay issues
 
 // Track retry state to prevent infinite loops: key = requestId, value = true
 const retryState = new Map();
@@ -435,43 +433,28 @@ async function createNip98AuthHeader (url, method, body = null) {
       }
     }
 
-    // Check cache
-    const cacheKey = `${url}:${method}:${bodyHash}`;
-    const cached = nip98Cache.get(cacheKey);
+    // Always create a fresh signed event (no caching -- reusing signed events
+    // causes replay issues and servers with replay protection reject duplicates)
+    const event = {
+      kind: 27235,
+      content: '',
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['u', url],
+        ['method', method]
+      ]
+    };
 
-    let signedEvent;
-    if (cached && cached.expires > Date.now()) {
-      signedEvent = cached.event;
-      console.log('[Podkey] Using cached NIP-98 auth event');
-    } else {
-      // Create and sign event
-      const event = {
-        kind: 27235,
-        content: '',
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['u', url],
-          ['method', method]
-        ]
-      };
-
-      if (bodyHash) {
-        event.tags.push(['payload', bodyHash]);
-      }
-
-      const keypair = await getKeypair();
-      signedEvent = await signEvent(event, keypair.privateKey);
-
-      // Cache
-      nip98Cache.set(cacheKey, {
-        event: signedEvent,
-        expires: Date.now() + CACHE_TTL
-      });
-
-      console.log('[Podkey] Created and signed NIP-98 auth event for', url);
-      console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent, null, 2));
-      console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
+    if (bodyHash) {
+      event.tags.push(['payload', bodyHash]);
     }
+
+    const keypair = await getKeypair();
+    const signedEvent = await signEvent(event, keypair.privateKey);
+
+    console.log('[Podkey] Created and signed NIP-98 auth event for', url);
+    console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent, null, 2));
+    console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
 
     const authHeader = `Nostr ${encodeNip98Header(signedEvent)}`;
     console.log('[Podkey] Authorization header (first 100 chars):', authHeader.substring(0, 100) + '...');
