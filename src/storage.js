@@ -159,11 +159,15 @@ export async function getTrustedOrigins() {
 }
 
 /**
- * Get auto-sign setting
+ * Get auto-sign setting.
+ * Defaults to OFF: a freshly installed extension must not silently sign or
+ * auto-trust any origin (including recognised Solid hosts) until the user
+ * deliberately enables auto-sign from the popup. This keeps the silent
+ * trusted-origin Solid / NIP-98 path strictly opt-in.
  * @returns {Promise<boolean>}
  */
 export async function getAutoSign() {
-  const { [STORAGE_KEYS.AUTO_SIGN]: autoSign = true } =
+  const { [STORAGE_KEYS.AUTO_SIGN]: autoSign = false } =
     await chrome.storage.local.get([STORAGE_KEYS.AUTO_SIGN]);
 
   return autoSign;

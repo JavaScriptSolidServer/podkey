@@ -76,8 +76,9 @@ async function showMainScreen(status) {
   // Load trusted sites
   await loadTrustedSites();
 
-  // Load auto-sign setting
-  const { podkey_auto_sign: autoSign = true } = await chrome.storage.local.get(['podkey_auto_sign']);
+  // Load auto-sign setting (defaults OFF — must match storage.getAutoSign,
+  // which keeps silent trusted-origin Solid / NIP-98 signing strictly opt-in).
+  const { podkey_auto_sign: autoSign = false } = await chrome.storage.local.get(['podkey_auto_sign']);
   document.getElementById('autoSignToggle').checked = autoSign;
 }
 
