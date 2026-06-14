@@ -1,0 +1,41 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "webextensions": true,
+    "serviceworker": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "extends": "eslint:recommended",
+  "rules": {
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-undef": "error",
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "**/*.bundle.js"
+  ],
+  "overrides": [
+    {
+      "files": ["test/**/*.js", "scripts/**/*.js"],
+      "env": {
+        "node": true,
+        "browser": false
+      }
+    }
+  ]
+}
