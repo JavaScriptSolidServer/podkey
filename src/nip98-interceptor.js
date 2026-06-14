@@ -6,6 +6,10 @@
 (function () {
   'use strict';
 
+  // Set to true for verbose request-flow logging. Off by default; this script
+  // never logs the Authorization header value or any token.
+  const DEBUG = false;
+
   // Only inject once
   if (window.__podkey_nip98_intercepted) {
     return;
@@ -86,10 +90,36 @@
     };
   }
 
+  // Compute the NIP-98 `payload` body hash here in the page context, where the
+  // body object is still intact (FormData / URLSearchParams / Blob cannot be
+  // structured-cloned to the background service worker faithfully). Returns the
+  // hex SHA-256, or '' when there is no hashable body. FormData is intentionally
+  // unsupported: NIP-98 does not define a canonical hash for multipart bodies.
+  async function bodyToHashHex (body) {
+    if (body === undefined || body === null || body === '') return '';
+    let bytes;
+    if (typeof body === 'string') {
+      bytes = new TextEncoder().encode(body);
+    } else if (body instanceof URLSearchParams) {
+      bytes = new TextEncoder().encode(body.toString());
+    } else if (body instanceof Blob) {
+      bytes = new Uint8Array(await body.arrayBuffer());
+    } else if (body instanceof ArrayBuffer) {
+      bytes = new Uint8Array(body);
+    } else if (ArrayBuffer.isView(body)) {
+      bytes = new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+    } else {
+      return '';
+    }
+    const digest = await crypto.subtle.digest('SHA-256', bytes);
+    return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+  }
+
   // Helper to get auth header from extension
   async function getNip98AuthHeader (url, method, body) {
     try {
       const urlString = typeof url === 'string' ? url : url.toString();
+      const bodyHash = await bodyToHashHex(body);
 
       // Send message to extension via custom event (content script will forward it)
       return new Promise((resolve) => {
@@ -104,13 +134,13 @@
 
         window.addEventListener('podkey-nip98-response', handler);
 
-        // Request auth header
+        // Request auth header (body hash only -- the raw body stays in the page)
         window.dispatchEvent(new CustomEvent('podkey-nip98-request', {
           detail: {
             id: eventId,
             url: urlString,
             method: method || 'GET',
-            body: body
+            bodyHash
           }
         }));
 
@@ -135,7 +165,7 @@
     // Normalize once — handles fetch(url, init) and fetch(new Request(...))
     // so downstream signing sees the real URL/method, not "[object Request]".
     const { url: urlString, method, body } = normalizeFetchCall(url, options);
-    console.log('[Podkey] 🔍 fetch() intercepted:', urlString, method);
+    if (DEBUG) console.log('[Podkey] fetch() intercepted:', urlString, method);
 
     // Respect an Authorization header the page already set — on either
     // options.headers or a Request input (e.g. Solid-OIDC DPoP). Overwriting
@@ -149,34 +179,33 @@
         const authHeader = await getNip98AuthHeader(urlString, method, body);
         if (authHeader) {
           setAuthorizationOnOptions(options, authHeader);
-          console.log('[Podkey] ✅ Added NIP-98 auth header');
-        } else {
-          console.log('[Podkey] ⚠️ No auth header (will retry on 401)');
+          if (DEBUG) console.log('[Podkey] Added NIP-98 auth header');
+        } else if (DEBUG) {
+          console.log('[Podkey] No auth header (will retry on 401)');
         }
       } catch (error) {
         console.error('[Podkey] Error adding NIP-98 auth:', error);
       }
-    } else {
-      console.log('[Podkey] ⏭️ Page already set Authorization — skipping injection');
+    } else if (DEBUG) {
+      console.log('[Podkey] Page already set Authorization — skipping injection');
     }
 
     const response = await originalFetch.call(this, url, options);
 
     // Handle 401 retry
     if (response.status === 401) {
-      console.log('[Podkey] 🔄 401 detected, retrying with NIP-98 auth...');
+      if (DEBUG) console.log('[Podkey] 401 detected, retrying with NIP-98 auth...');
       try {
-        const authHeader = await getNip98AuthHeader(urlString, method, body);
+        // If the original request followed a redirect, the endpoint that
+        // returned 401 is response.url, not the requested url. NIP-98 binds the
+        // signature to the `u` tag, so re-sign against the actual final URL.
+        const retryUrl = response.redirected && response.url ? response.url : urlString;
+        const authHeader = await getNip98AuthHeader(retryUrl, method, body);
         if (authHeader) {
           const retryOptions = { ...options };
           setAuthorizationOnOptions(retryOptions, authHeader);
-          console.log('[Podkey] 🔄 Retrying with NIP-98 auth...');
-          const retryResponse = await originalFetch.call(this, url, retryOptions);
-          if (retryResponse.status === 200 || retryResponse.status === 201) {
-            console.log('[Podkey] ✅✅ NIP-98 auth retry successful!');
-          } else {
-            console.log('[Podkey] ⚠️ Retry still failed:', retryResponse.status);
-          }
+          const retryResponse = await originalFetch.call(this, retryUrl, retryOptions);
+          if (DEBUG) console.log('[Podkey] NIP-98 retry status:', retryResponse.status);
           return retryResponse;
         }
       } catch (error) {
@@ -211,16 +240,16 @@
         const authHeader = await getNip98AuthHeader(this._podkeyUrl, this._podkeyMethod, body);
         if (authHeader) {
           originalXHRSetRequestHeader.call(this, 'Authorization', authHeader);
-          console.log('[Podkey] ✅ Added NIP-98 auth to XHR');
+          if (DEBUG) console.log('[Podkey] Added NIP-98 auth to XHR');
         }
       } catch (error) {
         console.error('[Podkey] Error adding NIP-98 auth to XHR:', error);
       }
-    } else if (this._podkeyHasPageAuth) {
-      console.log('[Podkey] ⏭️ Page set XHR Authorization — skipping injection');
+    } else if (this._podkeyHasPageAuth && DEBUG) {
+      console.log('[Podkey] Page set XHR Authorization — skipping injection');
     }
     return originalXHRSend.apply(this, [body]);
   };
 
-  console.log('[Podkey] ✅ NIP-98 interceptor injected into page context');
+  if (DEBUG) console.log('[Podkey] NIP-98 interceptor injected into page context');
 })();

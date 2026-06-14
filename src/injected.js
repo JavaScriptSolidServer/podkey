@@ -19,16 +19,19 @@ interceptorScript.onerror = function () {
 };
 (document.head || document.documentElement).appendChild(interceptorScript);
 
-// Listen for NIP-98 auth requests from page context
+// Listen for NIP-98 auth requests from page context. The request body never
+// crosses this boundary -- the page context computes its SHA-256 (the only
+// place FormData / URLSearchParams / streamed bodies survive intact) and sends
+// only the hex digest for the NIP-98 `payload` tag.
 window.addEventListener('podkey-nip98-request', async (event) => {
-  const { id, url, method, body } = event.detail;
+  const { id, url, method, bodyHash } = event.detail;
 
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'CREATE_NIP98_AUTH_HEADER',
       url,
       method,
-      body
+      bodyHash
     });
 
     if (chrome.runtime.lastError) {

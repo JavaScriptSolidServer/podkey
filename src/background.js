@@ -21,12 +21,11 @@ import {
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
-console.log('[Podkey] Background service worker started');
+// Set DEBUG=true to emit verbose diagnostics. Off by default so the extension
+// never logs public keys, DIDs, NIP-98 events, or Authorization headers.
+const DEBUG = false;
 
-// NIP-98 events are always created fresh to avoid replay issues
-
-// Track retry state to prevent infinite loops: key = requestId, value = true
-const retryState = new Map();
+if (DEBUG) console.log('[Podkey] Background service worker started');
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
@@ -57,7 +56,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   handleMessage(message, sender)
     .then(result => {
-      console.log('[Podkey] Message handled successfully:', message.type, result);
+      // Never log `result`: it may be a public key, signed event, or
+      // Authorization header (token). Log only the message type under DEBUG.
+      if (DEBUG) console.log('[Podkey] Message handled:', message.type);
       sendResponse(result);
     })
     .catch(error => {
@@ -74,7 +75,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function handleMessage (message, sender) {
   const { type, origin } = message;
 
-  console.log('[Podkey] Message received:', type, 'from', origin || 'popup');
+  if (DEBUG) console.log('[Podkey] Message received:', type, 'from', origin || 'popup');
 
   switch (type) {
     case 'GET_PUBLIC_KEY':
@@ -92,14 +93,6 @@ async function handleMessage (message, sender) {
     case 'GET_KEYPAIR_STATUS':
       return await handleGetKeypairStatus();
 
-    case 'GET_RELAYS':
-      // TODO: Implement relay management
-      return {};
-
-    case 'NIP04_ENCRYPT':
-    case 'NIP04_DECRYPT':
-      throw new Error('NIP-04 encryption not yet implemented');
-
     case 'NIP44_ENCRYPT':
       return await handleNip44Encrypt(message.pubkey, message.plaintext, origin);
 
@@ -113,7 +106,8 @@ async function handleMessage (message, sender) {
       return await createNip98AuthHeader(
         message.url,
         message.method,
-        message.body
+        message.body,
+        message.bodyHash
       );
 
     default:
@@ -196,7 +190,7 @@ async function handleSignEvent (event, origin, sender) {
   // Sign the event
   const signedEvent = await signEvent(event, keypair.privateKey);
 
-  console.log('[Podkey] Event signed:', signedEvent.id.substring(0, 16) + '...');
+  if (DEBUG) console.log('[Podkey] Event signed:', signedEvent.id.substring(0, 16) + '...');
 
   // Ensure event structure is correct (tags should be array, content should be string)
   // Preserve original event structure but ensure required fields are correct types
@@ -298,23 +292,14 @@ async function handleNip44GetConversationKey (peerPubkey, origin) {
  */
 async function handleGenerateKeypair () {
   try {
-    console.log('[Podkey] Starting keypair generation...');
     const keypair = await generateKeypair();
-    console.log('[Podkey] Keypair generated:', {
-      privateKeyLength: keypair.privateKey.length,
-      publicKeyLength: keypair.publicKey.length
-    });
-
     await storeKeypair(keypair.privateKey, keypair.publicKey);
-    console.log('[Podkey] Keypair stored');
+    if (DEBUG) console.log('[Podkey] Keypair generated and stored');
 
-    const result = {
+    return {
       publicKey: keypair.publicKey,
       did: `did:nostr:${keypair.publicKey}`
     };
-
-    console.log('[Podkey] Returning result:', result);
-    return result;
   } catch (error) {
     console.error('[Podkey] Error generating keypair:', error);
     throw error;
@@ -340,7 +325,7 @@ async function handleImportKeypair (privateKey) {
   // Store keypair
   await storeKeypair(privateKey, publicKey);
 
-  console.log('[Podkey] Keypair imported');
+  if (DEBUG) console.log('[Podkey] Keypair imported');
 
   return {
     publicKey,
@@ -416,29 +401,6 @@ async function showPermissionPrompt (origin, action, eventPreview) {
 }
 
 /**
- * Format event for display in prompt
- */
-function formatEventForPrompt (event) {
-  const lines = [];
-  lines.push(`Kind: ${event.kind}`);
-
-  if (event.tags && event.tags.length > 0) {
-    lines.push(`Tags: ${event.tags.length}`);
-    event.tags.slice(0, 3).forEach(tag => {
-      lines.push(`  [${tag.join(', ')}]`);
-    });
-  }
-
-  if (event.content) {
-    const preview = event.content.substring(0, 100);
-    lines.push(`Content: ${preview}${event.content.length > 100 ? '...' : ''}`);
-  }
-
-  return lines.join('\n');
-}
-
-
-/**
  * Encode signed event to Authorization header value
  * @param {object} signedEvent - Signed Nostr event
  * @returns {string} Base64-encoded event for Authorization header
@@ -482,7 +444,7 @@ function isLikelySolidServer (origin) {
   );
 }
 
-async function createNip98AuthHeader (url, method, body = null) {
+async function createNip98AuthHeader (url, method, body = null, bodyHash = null) {
   try {
     // Check if we should add auth
     const origin = new URL(url).origin;
@@ -491,73 +453,69 @@ async function createNip98AuthHeader (url, method, body = null) {
     const keyExists = await hasKeypair();
     const isSolid = isLikelySolidServer(origin);
 
-    console.log('[Podkey] NIP-98 auth check:', {
-      url,
-      origin,
-      keyExists,
-      trusted,
-      autoSign,
-      isSolid
-    });
+    if (DEBUG) console.log('[Podkey] NIP-98 auth check:', { url, origin, keyExists, trusted, autoSign, isSolid });
 
     if (!keyExists) {
-      console.log('[Podkey] No keypair found, skipping NIP-98 auth');
+      if (DEBUG) console.log('[Podkey] No keypair found, skipping NIP-98 auth');
       return null;
     }
 
     // For Solid servers, auto-trust on first use if auto-sign is enabled
     if (!trusted && isSolid && autoSign) {
-      console.log('[Podkey] Auto-trusting Solid server:', origin);
+      if (DEBUG) console.log('[Podkey] Auto-trusting Solid server:', origin);
       await addTrustedOrigin(origin);
     } else if (!trusted) {
-      console.log('[Podkey] Origin not trusted, skipping NIP-98 auth');
+      if (DEBUG) console.log('[Podkey] Origin not trusted, skipping NIP-98 auth');
       return null;
     }
 
     if (!autoSign) {
-      console.log('[Podkey] Auto-sign disabled, skipping NIP-98 auth');
+      if (DEBUG) console.log('[Podkey] Auto-sign disabled, skipping NIP-98 auth');
       return null;
     }
 
-    // Hash body if present
-    let bodyHash = '';
-    if (body) {
+    // Prefer a body hash computed in the page context (the only place where
+    // FormData / URLSearchParams / streamed bodies survive intact). Fall back
+    // to hashing here for body types that cross the message channel losslessly.
+    let resolvedBodyHash = typeof bodyHash === 'string' ? bodyHash : '';
+    if (!resolvedBodyHash && body) {
       if (typeof body === 'string') {
-        bodyHash = bytesToHex(sha256(new TextEncoder().encode(body)));
+        resolvedBodyHash = bytesToHex(sha256(new TextEncoder().encode(body)));
       } else if (body instanceof ArrayBuffer) {
-        bodyHash = bytesToHex(sha256(new Uint8Array(body)));
+        resolvedBodyHash = bytesToHex(sha256(new Uint8Array(body)));
       } else if (body instanceof Blob) {
-        const arrayBuffer = await body.arrayBuffer();
-        bodyHash = bytesToHex(sha256(new Uint8Array(arrayBuffer)));
+        resolvedBodyHash = bytesToHex(sha256(new Uint8Array(await body.arrayBuffer())));
       }
     }
 
     // Always create a fresh signed event (no caching -- reusing signed events
-    // causes replay issues and servers with replay protection reject duplicates)
+    // causes replay issues and servers with replay protection reject them).
+    // created_at has 1-second resolution, so a random nonce tag guarantees a
+    // distinct event id for repeated identical requests within the same second.
     const event = {
       kind: 27235,
       content: '',
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ['u', url],
-        ['method', method]
+        ['method', method],
+        ['nonce', bytesToHex(crypto.getRandomValues(new Uint8Array(16)))]
       ]
     };
 
-    if (bodyHash) {
-      event.tags.push(['payload', bodyHash]);
+    if (resolvedBodyHash) {
+      event.tags.push(['payload', resolvedBodyHash]);
     }
 
     const keypair = await getKeypair();
     const signedEvent = await signEvent(event, keypair.privateKey);
 
-    console.log('[Podkey] Created and signed NIP-98 auth event for', url);
-    console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent, null, 2));
-    console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
+    if (DEBUG) {
+      console.log('[Podkey] NIP-98 event:', JSON.stringify(signedEvent));
+      console.log('[Podkey] Public key (did:nostr):', `did:nostr:${keypair.publicKey}`);
+    }
 
-    const authHeader = `Nostr ${encodeNip98Header(signedEvent)}`;
-    console.log('[Podkey] Authorization header (first 100 chars):', authHeader.substring(0, 100) + '...');
-    return authHeader;
+    return `Nostr ${encodeNip98Header(signedEvent)}`;
   } catch (error) {
     console.error('[Podkey] Error creating NIP-98 auth header:', error);
     return null;
@@ -569,4 +527,4 @@ async function createNip98AuthHeader (url, method, body = null) {
 // Instead, we use JavaScript-level interception via content scripts.
 // See src/injected.js for fetch/XMLHttpRequest interception.
 
-console.log('[Podkey] NIP-98 auto-auth: Using JavaScript-level interception (see injected.js)');
+if (DEBUG) console.log('[Podkey] NIP-98 auto-auth: Using JavaScript-level interception (see injected.js)');

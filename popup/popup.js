@@ -2,6 +2,10 @@
  * Podkey - Popup UI Logic
  */
 
+// Set DEBUG=true to log identity material (public key / DID) for local
+// debugging. Off by default so the popup never prints the user's pubkey.
+const DEBUG = false;
+
 // UI State
 let currentScreen = 'setup';
 
@@ -20,7 +24,7 @@ async function checkKeypairStatus() {
   console.log('[Podkey Popup] Checking keypair status...');
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' });
-    console.log('[Podkey Popup] Keypair status response:', response);
+    if (DEBUG) console.log('[Podkey Popup] Keypair status response:', response);
 
     if (response.exists) {
       console.log('[Podkey Popup] Keypair exists, showing main screen');
@@ -116,7 +120,7 @@ async function handleGenerate() {
 
     const response = await chrome.runtime.sendMessage({ type: 'GENERATE_KEYPAIR' });
 
-    console.log('[Podkey] Keypair generated:', response.publicKey);
+    if (DEBUG) console.log('[Podkey] Keypair generated:', response.publicKey);
 
     // Show main screen
     await showMainScreen({
@@ -152,7 +156,7 @@ async function handleImport() {
       privateKey
     });
 
-    console.log('[Podkey] Keypair imported:', response.publicKey);
+    if (DEBUG) console.log('[Podkey] Keypair imported:', response.publicKey);
 
     // Clear input
     document.getElementById('privateKeyInput').value = '';
