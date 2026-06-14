@@ -33,3 +33,15 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Package extension (sideloadable unpacked zip)
+        run: |
+          mkdir -p dist
+          zip -r dist/podkey-extension.zip manifest.json src popup $([ -d icons ] && echo icons) -x '*.test.js'
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: podkey-extension
+          path: dist/podkey-extension.zip
+          if-no-files-found: error
