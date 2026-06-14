@@ -118,7 +118,7 @@ async function handleMessage (message, sender) {
 /**
  * Get public key with user permission
  */
-async function handleGetPublicKey (origin, sender) {
+async function handleGetPublicKey (origin, _sender) {
   // Check if keypair exists
   const keyExists = await hasKeypair();
   if (!keyExists) {
@@ -151,7 +151,7 @@ async function handleGetPublicKey (origin, sender) {
 /**
  * Sign event with user permission
  */
-async function handleSignEvent (event, origin, sender) {
+async function handleSignEvent (event, origin, _sender) {
   // Check if keypair exists
   const keyExists = await hasKeypair();
   if (!keyExists) {

@@ -3,7 +3,7 @@
  * Note: These tests require Chrome extension APIs, so they may need mocking
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
 // Mock chrome.storage for testing. The extension uses two areas: session

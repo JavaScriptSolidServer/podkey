@@ -16,7 +16,7 @@
     "no-implied-eval": "error",
     "no-undef": "error",
     "no-unused-vars": [
-      "warn",
+      "error",
       {
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_",

@@ -227,7 +227,7 @@
   // Track page-set Authorization on XHR so we don't overwrite it in send().
   // setRequestHeader auto-merges values per the XHR spec, but a merged
   // "DPoP xxx, Nostr yyy" still confuses servers that branch on scheme.
-  XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+  XMLHttpRequest.prototype.setRequestHeader = function (name, _value) {
     if (typeof name === 'string' && name.toLowerCase() === 'authorization') {
       this._podkeyHasPageAuth = true;
     }
