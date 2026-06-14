@@ -57,37 +57,10 @@
       });
     },
 
-    /**
-     * Get relays (optional NIP-07 extension)
-     * @returns {Promise<object>} Relay configuration
-     */
-    async getRelays () {
-      return sendMessageToExtension({ type: 'GET_RELAYS' });
-    },
-
-    /**
-     * Encrypt (NIP-04)
-     * @param {string} pubkey - Recipient public key
-     * @param {string} plaintext - Message to encrypt
-     * @returns {Promise<string>} Encrypted message
-     */
-    nip04: {
-      encrypt: async (pubkey, plaintext) => {
-        return sendMessageToExtension({
-          type: 'NIP04_ENCRYPT',
-          pubkey,
-          plaintext
-        });
-      },
-
-      decrypt: async (pubkey, ciphertext) => {
-        return sendMessageToExtension({
-          type: 'NIP04_DECRYPT',
-          pubkey,
-          ciphertext
-        });
-      }
-    },
+    // NIP-04 is intentionally not provided: it is a deprecated, unauthenticated
+    // scheme and Podkey only ships NIP-44 (v2). Advertising window.nostr.nip04
+    // would make feature-detection lie. NIP-07 getRelays is also omitted because
+    // Podkey holds no relay list — a missing method is the honest signal.
 
     /**
      * Encrypt / decrypt (NIP-44 v2)
