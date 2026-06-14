@@ -5,6 +5,12 @@
 
 import { generateKeypair, signEvent, getPublicKey } from './crypto.js';
 import {
+  getConversationKey,
+  encrypt as nip44Encrypt,
+  decrypt as nip44Decrypt,
+  bytesToHex as nip44BytesToHex
+} from './nip44.js';
+import {
   storeKeypair,
   getKeypair,
   hasKeypair,
@@ -93,6 +99,15 @@ async function handleMessage (message, sender) {
     case 'NIP04_ENCRYPT':
     case 'NIP04_DECRYPT':
       throw new Error('NIP-04 encryption not yet implemented');
+
+    case 'NIP44_ENCRYPT':
+      return await handleNip44Encrypt(message.pubkey, message.plaintext, origin);
+
+    case 'NIP44_DECRYPT':
+      return await handleNip44Decrypt(message.pubkey, message.ciphertext, origin);
+
+    case 'NIP44_GET_CONVERSATION_KEY':
+      return await handleNip44GetConversationKey(message.pubkey, origin);
 
     case 'CREATE_NIP98_AUTH_HEADER':
       return await createNip98AuthHeader(
@@ -192,6 +207,90 @@ async function handleSignEvent (event, origin, sender) {
     tags: Array.isArray(signedEvent.tags) ? signedEvent.tags : [],
     content: String(signedEvent.content || '')
   };
+}
+
+/**
+ * Resolve the user's keypair for an encryption request, gating on origin
+ * trust exactly the way GET_PUBLIC_KEY / SIGN_EVENT do. The raw private key
+ * never leaves the background service worker — only ciphertext/plaintext or a
+ * conversation key is returned to the page.
+ *
+ * @param {string} origin - requesting page origin
+ * @param {string} action - human-readable action for the permission prompt
+ * @returns {Promise<{privateKey: string, publicKey: string}>}
+ */
+async function resolveKeypairForEncryption (origin, action) {
+  const keyExists = await hasKeypair();
+  if (!keyExists) {
+    throw new Error('No keypair found. Please generate or import a key first.');
+  }
+
+  const trusted = await isTrustedOrigin(origin);
+  if (!trusted) {
+    const allowed = await showPermissionPrompt(origin, action);
+    if (!allowed) {
+      throw new Error('User denied permission');
+    }
+    await addTrustedOrigin(origin);
+  }
+
+  const keypair = await getKeypair();
+  if (!keypair || typeof keypair.privateKey !== 'string') {
+    throw new Error('Invalid keypair format');
+  }
+  return keypair;
+}
+
+/**
+ * NIP-44 (v2) encrypt: encrypt plaintext for a peer pubkey.
+ * @param {string} peerPubkey - 64-char hex peer public key
+ * @param {string} plaintext - message to encrypt
+ * @param {string} origin - requesting page origin
+ * @returns {Promise<string>} base64 NIP-44 payload
+ */
+async function handleNip44Encrypt (peerPubkey, plaintext, origin) {
+  if (typeof peerPubkey !== 'string' || typeof plaintext !== 'string') {
+    throw new Error('nip44.encrypt requires (pubkey, plaintext) strings');
+  }
+
+  const keypair = await resolveKeypairForEncryption(origin, 'encrypt a message (NIP-44)');
+  const conversationKey = getConversationKey(keypair.privateKey, peerPubkey);
+  return nip44Encrypt(plaintext, conversationKey);
+}
+
+/**
+ * NIP-44 (v2) decrypt: decrypt a base64 payload from a peer pubkey.
+ * @param {string} peerPubkey - 64-char hex peer public key
+ * @param {string} ciphertext - base64 NIP-44 payload
+ * @param {string} origin - requesting page origin
+ * @returns {Promise<string>} decrypted plaintext
+ */
+async function handleNip44Decrypt (peerPubkey, ciphertext, origin) {
+  if (typeof peerPubkey !== 'string' || typeof ciphertext !== 'string') {
+    throw new Error('nip44.decrypt requires (pubkey, ciphertext) strings');
+  }
+
+  const keypair = await resolveKeypairForEncryption(origin, 'decrypt a message (NIP-44)');
+  const conversationKey = getConversationKey(keypair.privateKey, peerPubkey);
+  return nip44Decrypt(ciphertext, conversationKey);
+}
+
+/**
+ * NIP-44 (v2) conversation key derivation (hex). Some apps call this sub-API to
+ * cache the key client-side; we still derive it in the background so the raw
+ * private key stays here.
+ * @param {string} peerPubkey - 64-char hex peer public key
+ * @param {string} origin - requesting page origin
+ * @returns {Promise<string>} 64-char hex conversation key
+ */
+async function handleNip44GetConversationKey (peerPubkey, origin) {
+  if (typeof peerPubkey !== 'string') {
+    throw new Error('nip44.getConversationKey requires a pubkey string');
+  }
+
+  const keypair = await resolveKeypairForEncryption(origin, 'derive a NIP-44 conversation key');
+  const conversationKey = getConversationKey(keypair.privateKey, peerPubkey);
+  return nip44BytesToHex(conversationKey);
 }
 
 /**

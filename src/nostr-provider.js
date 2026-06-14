@@ -87,6 +87,40 @@
           ciphertext
         });
       }
+    },
+
+    /**
+     * Encrypt / decrypt (NIP-44 v2)
+     * Used by NIP-17 / NIP-59 (gift-wrapped) direct messages. The private key
+     * never leaves the background service worker — encryption is performed
+     * there and only the resulting payload/plaintext crosses to the page.
+     */
+    nip44: {
+      /**
+       * @param {string} pubkey - 64-char hex peer public key
+       * @param {string} plaintext - message to encrypt
+       * @returns {Promise<string>} base64 NIP-44 v2 payload
+       */
+      encrypt: async (pubkey, plaintext) => {
+        return sendMessageToExtension({
+          type: 'NIP44_ENCRYPT',
+          pubkey,
+          plaintext
+        });
+      },
+
+      /**
+       * @param {string} pubkey - 64-char hex peer public key
+       * @param {string} ciphertext - base64 NIP-44 v2 payload
+       * @returns {Promise<string>} decrypted plaintext
+       */
+      decrypt: async (pubkey, ciphertext) => {
+        return sendMessageToExtension({
+          type: 'NIP44_DECRYPT',
+          pubkey,
+          ciphertext
+        });
+      }
     }
   };
 
