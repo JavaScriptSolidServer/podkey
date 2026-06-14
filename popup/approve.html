@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PodKey - Signing Request</title>
+  <link rel="stylesheet" href="popup.css">
+  <style>
+    body { width: 380px; min-height: 200px; }
+    .approve-container { padding: 16px; }
+    .approve-header {
+      margin: 0 0 12px;
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .origin-badge {
+      background: #1a1a2e;
+      color: #e94560;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 13px;
+      word-break: break-all;
+    }
+    .action-text {
+      margin: 12px 0;
+      color: #475569;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .event-preview {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 120px;
+      overflow-y: auto;
+      color: #64748b;
+      margin: 8px 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn-row button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-approve {
+      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+      color: #052e16;
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
+    }
+    .btn-deny {
+      background: linear-gradient(135deg, #fca5a5 0%, #ef4444 100%);
+      color: #450a0a;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    }
+    .btn-approve:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(34, 197, 94, 0.35);
+    }
+    .btn-deny:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
+    }
+    .timeout-bar {
+      margin-top: 12px;
+      height: 3px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .timeout-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, #ef4444 0%, #f97316 100%);
+      width: 100%;
+      animation: shrink 60s linear forwards;
+    }
+    @keyframes shrink {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="approve-container">
+    <h3 class="approve-header">Signing Request</h3>
+    <div class="origin-badge" id="origin"></div>
+    <div class="action-text" id="action"></div>
+    <div class="event-preview" id="preview"></div>
+    <div class="btn-row">
+      <button class="btn-deny" id="deny">Deny</button>
+      <button class="btn-approve" id="approve">Approve</button>
+    </div>
+    <div class="timeout-bar"><div class="timeout-bar-inner"></div></div>
+  </div>
+  <script src="approve.js"></script>
+</body>
+</html>

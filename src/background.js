@@ -36,8 +36,21 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+// Pending signing approval promises: requestId -> resolve function
+const pendingApprovals = new Map();
+
 // Handle messages from content scripts and popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Handle signing approval responses from the approve popup
+  if (message.type === 'APPROVE_SIGNING') {
+    const resolve = pendingApprovals.get(message.requestId);
+    if (resolve) {
+      pendingApprovals.delete(message.requestId);
+      resolve(message.approved === true);
+    }
+    return; // synchronous, no sendResponse needed
+  }
+
   handleMessage(message, sender)
     .then(result => {
       console.log('[Podkey] Message handled successfully:', message.type, result);
@@ -110,7 +123,7 @@ async function handleGetPublicKey (origin, sender) {
 
   if (!trusted) {
     // Show permission prompt
-    const allowed = await showPermissionPrompt(origin, 'share your public key');
+    const allowed = await showPermissionPrompt(origin, 'read your public key');
 
     if (!allowed) {
       throw new Error('User denied permission');
@@ -148,12 +161,14 @@ async function handleSignEvent (event, origin, sender) {
   let shouldSign = trusted && autoSign && isSolidAuth;
 
   if (!shouldSign) {
-    // Show signing prompt
-    const eventPreview = formatEventForPrompt(event);
-    const allowed = await showPermissionPrompt(
-      origin,
-      `sign this ${isSolidAuth ? 'Solid authentication' : 'event'}:\n\n${eventPreview}`
-    );
+    // Show signing prompt with event preview
+    const actionLabel = isSolidAuth ? 'sign a Solid authentication event' : `sign an event (kind ${event.kind})`;
+    const previewData = JSON.stringify({
+      kind: event.kind,
+      content: (event.content || '').substring(0, 200),
+      tags: (event.tags || []).length
+    });
+    const allowed = await showPermissionPrompt(origin, actionLabel, previewData);
 
     if (!allowed) {
       throw new Error('User denied signing');
@@ -256,30 +271,51 @@ async function handleGetKeypairStatus () {
 }
 
 /**
- * Show permission prompt to user
- * Note: Service workers can't use confirm(), so we auto-approve for now
- * TODO: Implement proper UI using chrome.notifications or action badge
+ * Show permission prompt to user via a popup window.
+ * Opens popup/approve.html and waits for the user to approve or deny.
+ * Auto-denies after 60 seconds if no response.
+ * @param {string} origin - The requesting origin
+ * @param {string} action - Human-readable description of the action
+ * @param {string} [eventPreview] - Optional preview of the event data
+ * @returns {Promise<boolean>} True if user approved
  */
-async function showPermissionPrompt (origin, action) {
-  // For now, auto-approve requests (service workers can't use confirm())
-  // In production, this should show a notification or update the badge
-  console.log(`[Podkey] Auto-approving: ${origin} wants to ${action}`);
+async function showPermissionPrompt (origin, action, eventPreview) {
+  const requestId = crypto.randomUUID();
 
-  // TODO: Show notification using chrome.notifications API
-  // For now, return true to auto-approve
-  return true;
+  return new Promise((resolve) => {
+    pendingApprovals.set(requestId, resolve);
 
-  // Future implementation:
-  // return new Promise((resolve) => {
-  //   chrome.notifications.create({
-  //     type: 'basic',
-  //     iconUrl: 'icons/128x128.png',
-  //     title: 'Podkey Permission Request',
-  //     message: `${origin} wants to ${action}`
-  //   }, (notificationId) => {
-  //     // Handle user response via notification buttons
-  //   });
-  // });
+    // Auto-deny after 60 seconds if no response
+    const timeout = setTimeout(() => {
+      if (pendingApprovals.has(requestId)) {
+        pendingApprovals.delete(requestId);
+        console.log(`[Podkey] Signing request ${requestId} timed out, auto-denying`);
+        resolve(false);
+      }
+    }, 60000);
+
+    // Clean up timeout when resolved normally
+    const originalResolve = resolve;
+    pendingApprovals.set(requestId, (approved) => {
+      clearTimeout(timeout);
+      originalResolve(approved);
+    });
+
+    const params = new URLSearchParams({
+      id: requestId,
+      origin: origin || 'Unknown',
+      action: action || 'sign',
+      preview: eventPreview || ''
+    });
+
+    chrome.windows.create({
+      url: `popup/approve.html?${params.toString()}`,
+      type: 'popup',
+      width: 420,
+      height: 380,
+      focused: true
+    });
+  });
 }
 
 /**
