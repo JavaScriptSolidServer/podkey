@@ -113,9 +113,11 @@ function setupEventListeners() {
  * Handle generate new keypair
  */
 async function handleGenerate() {
+  const btn = document.getElementById('generateBtn');
+  const labelEl = btn.querySelector('.btn-label');
+  const original = labelEl ? labelEl.textContent : btn.textContent;
   try {
-    const btn = document.getElementById('generateBtn');
-    btn.textContent = 'Generating...';
+    if (labelEl) labelEl.textContent = 'Generating…';
     btn.disabled = true;
 
     const response = await chrome.runtime.sendMessage({ type: 'GENERATE_KEYPAIR' });
@@ -130,8 +132,8 @@ async function handleGenerate() {
     });
   } catch (error) {
     alert('Error generating keypair: ' + error.message);
-    document.getElementById('generateBtn').textContent = '✨ Generate New Key';
-    document.getElementById('generateBtn').disabled = false;
+    if (labelEl) labelEl.textContent = original;
+    btn.disabled = false;
   }
 }
 
@@ -184,11 +186,14 @@ async function handleCopy() {
     await navigator.clipboard.writeText(publicKey);
 
     const btn = document.getElementById('copyBtn');
-    const originalText = btn.textContent;
-    btn.textContent = '✅ Copied!';
+    const labelEl = btn.querySelector('.btn-copy-label');
+    const originalText = labelEl.textContent;
+    labelEl.textContent = 'Copied';
+    btn.classList.add('copied');
 
     setTimeout(() => {
-      btn.textContent = originalText;
+      labelEl.textContent = originalText;
+      btn.classList.remove('copied');
     }, 2000);
   } catch (error) {
     alert('Failed to copy: ' + error.message);
@@ -251,12 +256,18 @@ async function loadTrustedSites() {
   const listEl = document.getElementById('trustedList');
   const origins = Object.keys(trusted);
 
+  // Rebuild the list with the DOM API only — no innerHTML on this surface,
+  // since origin strings originate from web pages.
+  listEl.replaceChildren();
+
   if (origins.length === 0) {
-    listEl.innerHTML = '<div class="empty-state">No trusted sites yet</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No trusted sites yet';
+    listEl.appendChild(empty);
     return;
   }
 
-  listEl.innerHTML = '';
   origins.sort().forEach(origin => {
     const div = document.createElement('div');
     div.className = 'trusted-item';
