@@ -8,7 +8,7 @@
     "dev": "echo 'Load extension from chrome://extensions in developer mode'",
     "build": "npm run bundle",
     "bundle": "node scripts/bundle.js",
-    "test": "node --test test/**/*.test.js",
+    "test": "node --test test/*.test.js",
     "lint": "eslint src/"
   },
   "keywords": [
