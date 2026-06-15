@@ -1,6 +1,6 @@
 # 🚀 How to Use Podkey
 
-**Podkey** is a browser extension for **did:nostr** and **Solid** authentication. It provides NIP-07-compatible Nostr wallet functionality with seamless Solid pod authentication using [did:nostr](https://nostrcg.github.io/did-nostr/) identities.
+**Podkey** is a browser extension for **did:nostr** and **Solid** authentication. It puts a NIP-07 `window.nostr` provider on every page and authenticates to Solid pods over NIP-98, both keyed to your [did:nostr](https://nostrcg.github.io/did-nostr/) identity.
 
 ## Quick Start Guide
 
@@ -116,24 +116,25 @@ if (window.nostr) {
 
 ## Using Podkey with Solid Servers
 
-Podkey automatically handles NIP-98 authentication for Solid servers!
+Podkey authenticates to Solid servers over NIP-98, using your did:nostr key.
 
-### How It Works
+### How it works
 
-1. When you access a protected resource on a Solid server
-2. Podkey detects the 401 authentication requirement
-3. You'll be prompted to trust the origin (first time only)
-4. Podkey signs an NIP-98 HTTP authentication event
-5. The request is retried with the signed header
-6. You get access! ✨
+1. You request a protected resource on a Solid server.
+2. The server replies with a 401.
+3. Podkey asks you to trust the origin (first time only).
+4. Podkey signs a NIP-98 HTTP authentication event.
+5. The request is retried with the signed header, and you get access.
 
-**No OAuth redirects. No IdP accounts. Just seamless authentication.**
+No OAuth redirect, no identity-provider account.
 
-### Enable Auto-Sign
+### Enable auto-sign
 
-1. Click the Podkey icon
-2. Toggle **"Auto-sign for Solid"** to ON
-3. Trusted Solid servers will now authenticate automatically
+Auto-sign is off by default. To turn it on:
+
+1. Click the Podkey icon.
+2. Toggle **Auto-sign for Solid** to on.
+3. Trusted Solid servers then authenticate without a prompt.
 
 ---
 
@@ -258,7 +259,8 @@ const pubkey = await window.nostr.getPublicKey()
 
 ### window.nostr.signEvent(event)
 
-Signs a Nostr event. Shows permission prompt if origin is not trusted.
+Signs a Nostr event. A trusted origin signs with no prompt; a new origin
+prompts once, and approving it grants trust.
 
 ```javascript
 const signed = await window.nostr.signEvent({
@@ -269,12 +271,14 @@ const signed = await window.nostr.signEvent({
 })
 ```
 
-### window.nostr.getRelays()
+### window.nostr.nip44.encrypt(pubkey, plaintext) / .decrypt(pubkey, ciphertext)
 
-Returns relay configuration (coming soon).
+NIP-44 (v2) encryption for NIP-17 / NIP-59 direct messages. The private key
+stays in the background worker.
 
 ```javascript
-const relays = await window.nostr.getRelays()
+const payload = await window.nostr.nip44.encrypt(peerPubkey, 'hello')
+const plaintext = await window.nostr.nip44.decrypt(peerPubkey, payload)
 ```
 
 ---

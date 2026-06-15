@@ -9,13 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **NIP-44 (v2) encryption** — `window.nostr.nip44.encrypt(pubkey, plaintext)`
-  and `window.nostr.nip44.decrypt(pubkey, ciphertext)`, enabling NIP-17 / NIP-59
-  gift-wrapped direct messages. Crypto runs in the background service worker
-  (the private key never reaches the page), reusing the existing message-passing
-  path. Implemented with `@noble/ciphers` (chacha20) + `@noble/hashes`
-  (hkdf/hmac/sha256) + `@noble/secp256k1` (ECDH). Verified against the official
-  NIP-44 spec test vectors.
+- **NIP-44 (v2) encryption.** `window.nostr.nip44.encrypt(pubkey, plaintext)`
+  and `nip44.decrypt(pubkey, ciphertext)` for NIP-17 / NIP-59 gift-wrapped
+  direct messages. The crypto runs in the background worker (`@noble/ciphers`
+  chacha20, `@noble/hashes` hkdf/hmac, ECDH via `@noble/secp256k1`) and is
+  checked against the official NIP-44 test vectors. The private key stays in
+  the worker.
+- **Per-origin signing consent.** The first request from a site opens an
+  approval popup; closing it or a 60-second timeout denies. Approving grants
+  per-origin trust that you can revoke from the popup.
+- **Session-only key storage.** The private key is held in
+  `chrome.storage.session`: in memory, cleared when the browser closes, never
+  copied to the page.
+- **NIP-98 Solid authentication.** Opt-in HTTP auth to Solid pods. Each token
+  carries a fresh 16-byte nonce and binds the request body hash and the final
+  redirect-aware URL, so one token authorises one request. Trusted Solid hosts
+  are matched exactly.
+- **Schnorr self-verify.** Every signature is checked against the public key
+  before it is returned.
+- **Extension icons** at 16, 48 and 128px, and a `script-src 'self'`
+  content-security policy across the popup and test page.
+- **Continuous integration.** `.github/workflows/ci.yml` runs build, test and
+  lint on every pull request and push to `main`, and uploads a sideloadable
+  extension zip. The 133-case suite covers signing, NIP-44 vectors, NIP-98
+  token shape, the content-script message whitelist, and the consent flow.
+
+### Changed
+
+- A trusted origin signs any event kind without a prompt, so Podkey works as a
+  general NIP-07 signer. A normal client publishes kind 0, 10002 and 22242 on
+  every load; those no longer raise a prompt once you trust the site. Untrusted
+  origins still prompt, and approving one grants trust.
+- The `window.nostr` provider exposes `getPublicKey`, `signEvent` and
+  `nip44.{encrypt,decrypt}`.
+- The popup fits within the browser popup height, keeping the Export and GitHub
+  links in view.
 
 ## [0.0.7] - 2024-12-XX
 
