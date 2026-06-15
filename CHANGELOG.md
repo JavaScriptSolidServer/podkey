@@ -5,6 +5,18 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **NIP-44 (v2) encryption** — `window.nostr.nip44.encrypt(pubkey, plaintext)`
+  and `window.nostr.nip44.decrypt(pubkey, ciphertext)`, enabling NIP-17 / NIP-59
+  gift-wrapped direct messages. Crypto runs in the background service worker
+  (the private key never reaches the page), reusing the existing message-passing
+  path. Implemented with `@noble/ciphers` (chacha20) + `@noble/hashes`
+  (hkdf/hmac/sha256) + `@noble/secp256k1` (ECDH). Verified against the official
+  NIP-44 spec test vectors.
+
 ## [0.0.7] - 2024-12-XX
 
 ### Changed

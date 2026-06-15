@@ -2,6 +2,10 @@
  * Podkey - Popup UI Logic
  */
 
+// Set DEBUG=true to log identity material (public key / DID) for local
+// debugging. Off by default so the popup never prints the user's pubkey.
+const DEBUG = false;
+
 // UI State
 let currentScreen = 'setup';
 
@@ -20,7 +24,7 @@ async function checkKeypairStatus() {
   console.log('[Podkey Popup] Checking keypair status...');
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' });
-    console.log('[Podkey Popup] Keypair status response:', response);
+    if (DEBUG) console.log('[Podkey Popup] Keypair status response:', response);
 
     if (response.exists) {
       console.log('[Podkey Popup] Keypair exists, showing main screen');
@@ -72,8 +76,9 @@ async function showMainScreen(status) {
   // Load trusted sites
   await loadTrustedSites();
 
-  // Load auto-sign setting
-  const { podkey_auto_sign: autoSign = true } = await chrome.storage.local.get(['podkey_auto_sign']);
+  // Load auto-sign setting (defaults OFF — must match storage.getAutoSign,
+  // which keeps silent trusted-origin Solid / NIP-98 signing strictly opt-in).
+  const { podkey_auto_sign: autoSign = false } = await chrome.storage.local.get(['podkey_auto_sign']);
   document.getElementById('autoSignToggle').checked = autoSign;
 }
 
@@ -109,14 +114,16 @@ function setupEventListeners() {
  * Handle generate new keypair
  */
 async function handleGenerate() {
+  const btn = document.getElementById('generateBtn');
+  const labelEl = btn.querySelector('.btn-label');
+  const original = labelEl ? labelEl.textContent : btn.textContent;
   try {
-    const btn = document.getElementById('generateBtn');
-    btn.textContent = 'Generating...';
+    if (labelEl) labelEl.textContent = 'Generating…';
     btn.disabled = true;
 
     const response = await chrome.runtime.sendMessage({ type: 'GENERATE_KEYPAIR' });
 
-    console.log('[Podkey] Keypair generated:', response.publicKey);
+    if (DEBUG) console.log('[Podkey] Keypair generated:', response.publicKey);
 
     // Show main screen
     await showMainScreen({
@@ -126,8 +133,8 @@ async function handleGenerate() {
     });
   } catch (error) {
     alert('Error generating keypair: ' + error.message);
-    document.getElementById('generateBtn').textContent = '✨ Generate New Key';
-    document.getElementById('generateBtn').disabled = false;
+    if (labelEl) labelEl.textContent = original;
+    btn.disabled = false;
   }
 }
 
@@ -152,7 +159,7 @@ async function handleImport() {
       privateKey
     });
 
-    console.log('[Podkey] Keypair imported:', response.publicKey);
+    if (DEBUG) console.log('[Podkey] Keypair imported:', response.publicKey);
 
     // Clear input
     document.getElementById('privateKeyInput').value = '';
@@ -180,11 +187,14 @@ async function handleCopy() {
     await navigator.clipboard.writeText(publicKey);
 
     const btn = document.getElementById('copyBtn');
-    const originalText = btn.textContent;
-    btn.textContent = '✅ Copied!';
+    const labelEl = btn.querySelector('.btn-copy-label');
+    const originalText = labelEl.textContent;
+    labelEl.textContent = 'Copied';
+    btn.classList.add('copied');
 
     setTimeout(() => {
-      btn.textContent = originalText;
+      labelEl.textContent = originalText;
+      btn.classList.remove('copied');
     }, 2000);
   } catch (error) {
     alert('Failed to copy: ' + error.message);
@@ -219,10 +229,15 @@ async function handleExport() {
   if (!confirmed) return;
 
   try {
-    const { podkey_private_key: privateKey } = await chrome.storage.local.get(['podkey_private_key']);
+    // Private key is now stored in session storage (in-memory only).
+    // Try session storage first, fall back to local for legacy installs.
+    let { podkey_private_key: privateKey } = await chrome.storage.session.get(['podkey_private_key']);
+    if (!privateKey) {
+      ({ podkey_private_key: privateKey } = await chrome.storage.local.get(['podkey_private_key']));
+    }
 
     if (!privateKey) {
-      alert('No private key found');
+      alert('No private key found. The key may have been cleared when the browser restarted. Please re-import your key.');
       return;
     }
 
@@ -242,12 +257,18 @@ async function loadTrustedSites() {
   const listEl = document.getElementById('trustedList');
   const origins = Object.keys(trusted);
 
+  // Rebuild the list with the DOM API only — no innerHTML on this surface,
+  // since origin strings originate from web pages.
+  listEl.replaceChildren();
+
   if (origins.length === 0) {
-    listEl.innerHTML = '<div class="empty-state">No trusted sites yet</div>';
+    const empty = document.createElement('div');
+    empty.className = 'empty-state';
+    empty.textContent = 'No trusted sites yet';
+    listEl.appendChild(empty);
     return;
   }
 
-  listEl.innerHTML = '';
   origins.sort().forEach(origin => {
     const div = document.createElement('div');
     div.className = 'trusted-item';
@@ -287,9 +308,9 @@ async function removeTrustedSite(origin) {
   console.log('[Podkey] Removed trusted site:', origin);
 }
 
-// Listen for storage changes
+// Listen for storage changes (local for trusted sites / pubkey, session for private key)
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === 'local' && currentScreen === 'main') {
+  if ((areaName === 'local' || areaName === 'session') && currentScreen === 'main') {
     loadTrustedSites();
   }
 });

@@ -68,6 +68,7 @@
 - ✅ **Key Generation** - Secure cryptographic key generation using `@noble/secp256k1`
 - ✅ **Key Import** - Import existing 64-char hex private keys
 - ✅ **Event Signing** - Sign Nostr events with Schnorr signatures
+- ✅ **NIP-44 Encryption** - v2 `encrypt`/`decrypt` for NIP-17/NIP-59 gift-wrapped DMs (key never leaves the background)
 - ✅ **Trust Management** - Per-origin permissions with auto-approval
 - ✅ **Beautiful UI** - Soft gradients, smooth animations
 - ✅ **64-char Hex Keys** - Proper did:nostr format compatibility
@@ -259,6 +260,19 @@ const signed = await window.nostr.signEvent({
   tags: [],
   content: 'Hello!'
 })
+```
+
+### `window.nostr.nip44.encrypt(pubkey, plaintext)` / `window.nostr.nip44.decrypt(pubkey, ciphertext)`
+
+NIP-44 (v2) encryption, used by NIP-17 / NIP-59 gift-wrapped direct messages.
+The private key never leaves the background service worker — encryption is
+performed there and only the resulting base64 payload (or decrypted plaintext)
+crosses to the page, mirroring the existing signing message path.
+
+```javascript
+const peer = '<64-char hex pubkey>'
+const payload = await window.nostr.nip44.encrypt(peer, 'hello')
+const plaintext = await window.nostr.nip44.decrypt(peer, payload)
 ```
 
 ### `window.nostr.getRelays()`

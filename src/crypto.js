@@ -80,6 +80,13 @@ export async function signEvent (event, privateKeyHex) {
     throw new Error('Invalid signature length');
   }
 
+  // Self-verify before returning: a signature that does not verify against
+  // the event id and pubkey indicates a faulty signing path (bad RNG, library
+  // regression) and must never be emitted from a key-holder.
+  if (!schnorr.verify(signatureBytes, eventIdBytes, hexToBytes(pubkey))) {
+    throw new Error('Signature self-verification failed');
+  }
+
   // Ensure all fields are strings (Nostr spec requires this)
   return {
     ...event,

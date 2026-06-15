@@ -1,0 +1,252 @@
+/**
+ * Podkey - Signing-approval consent prompt
+ * The most security-critical surface: a site is asking to act as the user.
+ * Goal: unambiguous, calm, hard to mis-click. Deny is the safe default.
+ * Inherits design tokens from popup.css (loaded first).
+ */
+
+body {
+  width: 380px;
+  min-height: 0;
+}
+
+.approve {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 14px;
+}
+
+/* ---- Header ---- */
+.approve-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.approve-shield {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+.approve-shield svg {
+  width: 20px;
+  height: 20px;
+}
+
+.approve-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.approve-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ---- Origin block (the spoof-resistant focal point) ---- */
+.origin-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.origin-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.origin-badge {
+  display: block;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+  background: var(--surface-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  /* Long/hostile origins wrap and stay contained; cannot push layout. */
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  max-height: 84px;
+  overflow-y: auto;
+}
+
+/* ---- Action ---- */
+.action-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-bottom: 12px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.action-row .action-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--text-muted);
+}
+
+.action-row .action-text {
+  font-weight: 600;
+}
+
+/* ---- Preview ---- */
+.preview-wrap {
+  margin-bottom: 12px;
+}
+
+.preview-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.event-preview {
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-height: 150px;
+  overflow: auto;
+  white-space: pre;
+  word-break: normal;
+  tab-size: 2;
+}
+
+/* ---- Trust warning ---- */
+.trust-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--warn);
+  margin-bottom: 14px;
+  padding: 9px 11px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+}
+
+.trust-note svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 1px;
+}
+
+/* ---- Buttons ---- */
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-row .btn {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Deny = safe default: solid, visually settled, autofocused. */
+.btn-deny {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+}
+
+.btn-deny:hover {
+  background: var(--surface-2);
+}
+
+.btn-deny:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+/* Approve = deliberate: outlined danger-tone, not pre-focused. */
+.btn-approve {
+  background: transparent;
+  color: var(--danger);
+  border: 1.5px solid var(--danger-border);
+}
+
+.btn-approve:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.btn-approve:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3);
+}
+
+/* ---- Countdown ---- */
+.countdown {
+  margin-top: 12px;
+}
+
+.countdown-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 7px;
+}
+
+.countdown-text strong {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.timeout-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.timeout-bar-inner {
+  height: 100%;
+  width: 100%;
+  background: var(--text-faint);
+  border-radius: 999px;
+  transform-origin: left center;
+  /* Width is driven from JS for an accurate, synced countdown. */
+  transition: background 0.4s ease;
+}
+
+.timeout-bar-inner.urgent {
+  background: var(--danger);
+}

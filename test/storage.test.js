@@ -3,40 +3,48 @@
  * Note: These tests require Chrome extension APIs, so they may need mocking
  */
 
-import { describe, it, before, after } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-// Mock chrome.storage for testing
-const mockStorage = {
-  data: {},
-  local: {
+// Mock chrome.storage for testing. The extension uses two areas: session
+// (in-memory private key) and local (persisted public key + settings), so the
+// mock backs each area with its own store.
+function makeArea (store) {
+  return {
     get: async (keys) => {
       const result = {};
       if (Array.isArray(keys)) {
         keys.forEach(key => {
-          result[key] = mockStorage.data[key];
+          result[key] = store[key];
         });
       } else if (keys) {
         Object.keys(keys).forEach(key => {
-          result[key] = mockStorage.data[key] || keys[key];
+          result[key] = store[key] || keys[key];
         });
       } else {
-        return { ...mockStorage.data };
+        return { ...store };
       }
       return result;
     },
     set: async (items) => {
-      Object.assign(mockStorage.data, items);
+      Object.assign(store, items);
     },
     remove: async (keys) => {
       if (Array.isArray(keys)) {
-        keys.forEach(key => delete mockStorage.data[key]);
+        keys.forEach(key => delete store[key]);
       } else {
-        delete mockStorage.data[keys];
+        delete store[keys];
       }
     }
-  }
+  };
+}
+
+const mockStorage = {
+  localData: {},
+  sessionData: {}
 };
+mockStorage.local = makeArea(mockStorage.localData);
+mockStorage.session = makeArea(mockStorage.sessionData);
 
 // Set up global chrome mock
 global.chrome = { storage: mockStorage };
@@ -56,7 +64,10 @@ const {
 describe('Storage Functions', () => {
   // Clear storage before each test
   const clearStorage = () => {
-    mockStorage.data = {};
+    mockStorage.localData = {};
+    mockStorage.sessionData = {};
+    mockStorage.local = makeArea(mockStorage.localData);
+    mockStorage.session = makeArea(mockStorage.sessionData);
   };
 
   describe('storeKeypair / getKeypair', () => {

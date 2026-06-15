@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Podkey — Signing Request</title>
+    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="approve.css" />
+  </head>
+  <body>
+    <main class="approve">
+      <div class="approve-head">
+        <div class="approve-shield" aria-hidden="true">
+          <!-- shield -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        </div>
+        <div>
+          <div class="approve-title">Signing request</div>
+          <div class="approve-sub">Review carefully before approving</div>
+        </div>
+      </div>
+
+      <section class="origin-block">
+        <div class="origin-eyebrow">Requested by</div>
+        <code class="origin-badge" id="origin"></code>
+      </section>
+
+      <div class="action-row">
+        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+        </svg>
+        <span class="action-text" id="action"></span>
+      </div>
+
+      <div class="preview-wrap" id="previewWrap">
+        <div class="preview-label">Payload</div>
+        <pre class="event-preview" id="preview"></pre>
+      </div>
+
+      <div class="trust-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        <span>Approving lets this site act with your key as if it were you.</span>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-deny" id="deny" type="button" autofocus>Deny</button>
+        <button class="btn btn-approve" id="approve" type="button">Approve</button>
+      </div>
+
+      <div class="countdown">
+        <div class="countdown-text">
+          Auto-denies in <strong id="countdown">60</strong>s
+        </div>
+        <div class="timeout-bar">
+          <div class="timeout-bar-inner" id="timeoutBar"></div>
+        </div>
+      </div>
+    </main>
+    <script src="approve.js"></script>
+  </body>
+</html>
