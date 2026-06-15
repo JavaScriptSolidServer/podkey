@@ -160,12 +160,18 @@ async function handleSignEvent (event, origin, _sender) {
 
   const keypair = await getKeypair();
 
-  // Check if this is a Solid auth event (kind 27235) - auto-sign if trusted
+  // A trusted origin signs without a prompt — the same trust model already used
+  // by GET_PUBLIC_KEY and nip44.{encrypt,decrypt} (decrypting DMs is strictly
+  // more sensitive than signing, and is silent for trusted origins). An
+  // untrusted origin always prompts, and approving it establishes revocable
+  // trust. The previous `&& autoSign && isSolidAuth` gate special-cased Solid
+  // kind-27235 and made Podkey unusable as a general NIP-07 signer — a normal
+  // client (kind 0/1/10002/22242…) re-prompted on every page load. isSolidAuth
+  // now only tunes the wording of the first-contact prompt.
   const isSolidAuth = event.kind === 27235;
   const trusted = await isTrustedOrigin(origin);
-  const autoSign = await getAutoSign();
 
-  let shouldSign = trusted && autoSign && isSolidAuth;
+  let shouldSign = trusted;
 
   if (!shouldSign) {
     // Show signing prompt with event preview
