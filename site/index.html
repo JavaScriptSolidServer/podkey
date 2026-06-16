@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Podkey — one key for Nostr, did:nostr & Solid</title>
-  <meta name="description" content="Podkey is a Manifest V3 browser extension: a NIP-07 Nostr signer, a did:nostr identity, and Solid pod authentication over NIP-98 — one encrypted key, held on your device." />
+  <meta name="description" content="Podkey is a Manifest V3 browser extension: a NIP-07 Nostr signer, a did:nostr identity, and Solid pod authentication over NIP-98, using one encrypted key held on your device." />
   <link rel="icon" href="icon.svg" />
   <style>
     :root{
@@ -86,7 +86,7 @@
     <h1>One key for <span class="g">Nostr, did:nostr&nbsp;&amp; Solid</span></h1>
     <p>Podkey is a browser extension that holds one encrypted key on your device and uses it
        to sign Nostr events, carry your <code>did:nostr</code> identity, and log you in to
-       Solid pods — no accounts, no servers, no OAuth redirect.</p>
+       Solid pods. No accounts, no servers, no OAuth redirect.</p>
     <div class="cta">
       <a class="btn btn-primary" href="#install">Install</a>
       <a class="btn btn-secondary" href="test-page/">Live test page</a>
@@ -97,7 +97,7 @@
   <section id="features">
     <h2>What it does</h2>
     <div class="grid">
-      <div class="card"><h3>NIP-07 signer</h3><p><code>getPublicKey</code>, <code>signEvent</code>, and <code>nip44.encrypt/decrypt</code> on <code>window.nostr</code> — every NIP-07 Nostr client works unchanged.</p></div>
+      <div class="card"><h3>NIP-07 signer</h3><p><code>getPublicKey</code>, <code>signEvent</code>, and <code>nip44.encrypt/decrypt</code> on <code>window.nostr</code>, so every NIP-07 Nostr client works unchanged.</p></div>
       <div class="card"><h3>Solid authentication</h3><p>NIP-98 HTTP auth to Solid pods, keyed to your did:nostr. No OAuth redirect, no identity-provider account.</p></div>
       <div class="card"><h3>did:nostr identity</h3><p>Your public key <em>is</em> your <code>did:nostr</code> identifier, portable across any NIP-07-aware app.</p></div>
       <div class="card"><h3>Encrypted vault</h3><p>The private key is sealed at rest with AES-256-GCM under a scrypt passphrase. The raw key never touches disk.</p></div>
@@ -110,9 +110,9 @@
     <h2>Where Podkey fits</h2>
     <p style="color:var(--muted);max-width:640px">Podkey sits at the join of two mature, independently-built ecosystems and consolidates them behind a single key.</p>
     <div class="eco">
-      <div class="card"><h3>Nostr signing</h3><p>NIP-07 signers are well-established. Podkey is fully NIP-07 compatible — it doesn't reinvent signing, it extends it.</p></div>
-      <div class="card"><h3><a href="https://github.com/topics/did-nostr">did:nostr</a></h3><p>An emerging ecosystem of decentralized-identity tooling on Nostr keys. Podkey treats your pubkey as a first-class DID.</p></div>
-      <div class="card"><h3><a href="https://solidproject.org">Solid</a></h3><p>The W3C-aligned personal-data-pod standard. Podkey logs in over NIP-98 keyed to your did:nostr — no IdP account.</p></div>
+      <div class="card"><h3>Nostr signing</h3><p>NIP-07 signers are well-established. Podkey is fully NIP-07 compatible and builds on that work rather than reinventing it.</p></div>
+      <div class="card"><h3><a href="https://github.com/topics/did-nostr">did:nostr</a></h3><p>An emerging ecosystem of decentralised-identity tooling on Nostr keys. Podkey treats your pubkey as a first-class DID.</p></div>
+      <div class="card"><h3><a href="https://solidproject.org">Solid</a></h3><p>The W3C-aligned personal-data-pod standard. Podkey logs in over NIP-98 keyed to your did:nostr, with no IdP account.</p></div>
     </div>
     <p style="color:var(--muted);margin-top:18px">The novel part is the <strong style="color:var(--text)">consolidation</strong>: one locally-held, encrypted key that is at once your Nostr signer, your <code>did:nostr</code> identity, and your Solid login.</p>
   </section>

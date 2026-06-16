@@ -68,15 +68,15 @@
 
   <h2>How your key is used</h2>
   <ul>
-    <li>Signing (NIP-07), NIP-44 encryption, and Solid authentication (NIP-98) happen entirely inside the extension's background service worker. The raw private key is never exposed to web pages — only the resulting signature, ciphertext/plaintext, or <code>Authorization</code> header.</li>
+    <li>Signing (NIP-07), NIP-44 encryption, and Solid authentication (NIP-98) happen entirely inside the extension's background service worker. The raw private key is never exposed to web pages: the page receives only the resulting signature, ciphertext/plaintext, or <code>Authorization</code> header.</li>
     <li>A site you have not approved triggers a consent prompt on its first request; closing it, or a 60-second timeout, denies it.</li>
     <li>Podkey makes <strong>no network requests of its own</strong>. A NIP-98 <code>Authorization</code> header is attached only to requests <em>you</em> initiate to a server you have trusted; the data goes to that server, under your control, not to Podkey.</li>
   </ul>
 
   <h2>Permissions, and why</h2>
   <ul>
-    <li><code>storage</code> — to keep the encrypted key, your public key, and your trusted sites locally.</li>
-    <li><strong>Host access (<code>&lt;all_urls&gt;</code>)</strong> — as a NIP-07 signer, Podkey injects a <code>window.nostr</code> provider into pages and, for trusted sites, attaches NIP-98 auth to your own requests. Podkey <strong>does not read, collect, or transmit page content or browsing history</strong>; host access is used solely to expose the signer and to intercept auth for origins you explicitly approved.</li>
+    <li><code>storage</code>: to keep the encrypted key, your public key, and your trusted sites locally.</li>
+    <li><strong>Host access (<code>&lt;all_urls&gt;</code>)</strong>: as a NIP-07 signer, Podkey injects a <code>window.nostr</code> provider into pages and, for trusted sites, attaches NIP-98 auth to your own requests. Podkey <strong>does not read, collect, or transmit page content or browsing history</strong>; host access is used solely to expose the signer and to intercept auth for origins you explicitly approved.</li>
   </ul>
 
   <h2>Data sharing and retention</h2>
@@ -84,7 +84,7 @@
     <li>Podkey <strong>does not sell or share</strong> any data. No data broker, no third-party processor, no off-device transfer of your key or activity.</li>
     <li>All data stays on your device until you delete it. Removing the extension, or "Forget key" in the popup, erases the stored vault, public key, and trusted sites.</li>
   </ul>
-  <div class="note">Back up your private key before forgetting it or uninstalling — without a backup it cannot be recovered.</div>
+  <div class="note">Back up your private key before forgetting it or uninstalling. Without a backup it cannot be recovered.</div>
 
   <h2>Your control</h2>
   <ul>

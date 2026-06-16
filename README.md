@@ -35,7 +35,7 @@ stays inside the extension and never reaches the page.
 - **Unlocked in memory.** When you unlock with your passphrase, the decrypted
   key is cached in `chrome.storage.session` for the browser session so signing
   is fast; it is cleared when the browser closes, so you re-unlock next time. It
-  is never copied to the page — signing, NIP-44 and NIP-98 all run in the
+  is never copied to the page; signing, NIP-44 and NIP-98 all run in the
   background service worker.
 - A site you have not approved raises a consent popup on its first request.
   Closing the popup, or a 60-second timeout, denies it. Approving grants
@@ -165,16 +165,15 @@ consolidates them behind one key:
 
 - **Nostr signing already exists.** NIP-07 browser signers (nos2x, Alby, and
   others) are well-established. Podkey is fully NIP-07 compatible, so every
-  existing Nostr client works with it unchanged — it does not reinvent that
-  surface.
+  existing Nostr client works with it unchanged. It builds on that surface
+  rather than replacing it.
 - **[did:nostr](https://github.com/topics/did-nostr)** is an emerging ecosystem
-  of decentralized-identity tooling built on Nostr keys. Podkey treats your
-  public key as a first-class `did:nostr` identifier rather than just a signing
-  key.
+  of decentralised-identity tooling built on Nostr keys. Podkey treats your
+  public key as a first-class `did:nostr` identifier in its own right.
 - **[Solid](https://solidproject.org)** (the W3C-aligned personal-data-pod
   standard) is highly mature but has historically required OIDC/WebID identity
   providers. Podkey authenticates to Solid pods over NIP-98 keyed to your
-  did:nostr — no OAuth redirect, no IdP account.
+  did:nostr, with no OAuth redirect and no IdP account.
 
 The novel part is the **consolidation**: one locally-held, encrypted key that
 is simultaneously your Nostr signer, your `did:nostr` identity, and your Solid
@@ -239,7 +238,7 @@ extension is enabled, and check for another Nostr extension claiming
 `window.nostr`.
 
 **Events will not sign.** Generate or import a key first. If the popup shows
-**Unlock**, the vault is locked (e.g. after a browser restart) — enter your
+**Unlock**, the vault is locked (e.g. after a browser restart). Enter your
 passphrase to unlock for the session. Also check the service worker console
 (the "service worker" link on `chrome://extensions`) for a blocked consent
 prompt.

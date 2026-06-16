@@ -28,7 +28,7 @@ remote logging.** Podkey collects none of your browsing history or page content.
 
 - **Signing** (NIP-07 `signEvent`, `nip44.encrypt/decrypt`) and **Solid
   authentication** (NIP-98) happen entirely inside the extension's background
-  service worker. The raw private key is never exposed to web pages — only the
+  service worker. The raw private key is never exposed to web pages: only the
   resulting signature, ciphertext/plaintext, or `Authorization` header crosses
   to the page.
 - A site you have not approved triggers a consent prompt on its first request.
@@ -40,9 +40,9 @@ remote logging.** Podkey collects none of your browsing history or page content.
 
 ## Permissions, and why they are needed
 
-- **`storage`** — to keep the encrypted key, your public key, and your trusted
+- **`storage`**: to keep the encrypted key, your public key, and your trusted
   sites locally, as described above.
-- **Host access (`<all_urls>`)** — Podkey is a NIP-07 signer, so it injects a
+- **Host access (`<all_urls>`)**: Podkey is a NIP-07 signer, so it injects a
   `window.nostr` provider into pages and, for sites you have trusted, attaches
   NIP-98 auth to your own requests. This requires script access to the pages
   where you use a Nostr/Solid app. Podkey **does not read, collect, or transmit
@@ -55,7 +55,7 @@ remote logging.** Podkey collects none of your browsing history or page content.
   third-party processor, and no off-device transfer of your key or activity.
 - All data remains on your device until you delete it. **Removing the
   extension, or using "Forget key" in the popup, erases the stored vault, public
-  key, and trusted sites.** Back up your private key before doing so — without a
+  key, and trusted sites.** Back up your private key before doing so. Without a
   backup it cannot be recovered.
 
 ## Your control
