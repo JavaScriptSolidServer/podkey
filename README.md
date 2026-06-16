@@ -2,7 +2,7 @@
 
 > Browser extension for **did:nostr** and **Solid** authentication
 
-[![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
+[![Version](https://img.shields.io/badge/version-0.0.8-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
@@ -29,9 +29,14 @@ stays inside the extension and never reaches the page.
 
 ## Security model
 
-- The private key lives in `chrome.storage.session`: held in memory, cleared
-  when the browser closes, never copied to the page. Signing, NIP-44 and NIP-98
-  all run in the background service worker.
+- **Encrypted at rest.** The private key is persisted only as an AES-256-GCM
+  ciphertext in `chrome.storage.local`, wrapped by a key derived from your
+  passphrase with scrypt. The raw key is never written to disk.
+- **Unlocked in memory.** When you unlock with your passphrase, the decrypted
+  key is cached in `chrome.storage.session` for the browser session so signing
+  is fast; it is cleared when the browser closes, so you re-unlock next time. It
+  is never copied to the page — signing, NIP-44 and NIP-98 all run in the
+  background service worker.
 - A site you have not approved raises a consent popup on its first request.
   Closing the popup, or a 60-second timeout, denies it. Approving grants
   per-origin trust that you can revoke at any time from the popup.
@@ -69,7 +74,9 @@ npm run build      # bundles @noble deps into src/background.bundle.js
 Then load the `podkey` directory as an unpacked extension (steps 2–4 above).
 
 Pin the toolbar icon (🔑), open it, and generate or import a 64-character hex
-key. The [test page](https://javascriptsolidserver.github.io/podkey/test-page/)
+key, choosing an **encryption passphrase**. The key is sealed under that
+passphrase (see [Security model](#security-model)); you unlock it once per
+browser session. The [test page](https://javascriptsolidserver.github.io/podkey/test-page/)
 detects the extension and runs live signing checks.
 
 ## Usage
@@ -122,9 +129,10 @@ const plaintext = await window.nostr.nip44.decrypt(peer, payload)
 │   management, identity display, consent  │
 │                                          │
 │  Background worker (src/)                │
-│   key storage (storage.js), signing &    │
-│   NIP-44 (crypto.js, nip44.js), NIP-98   │
-│   auth, per-origin permission gate       │
+│   encrypted key vault (vault.js) + session│
+│   cache (storage.js), signing & NIP-44   │
+│   (crypto.js, nip44.js), NIP-98 auth,    │
+│   per-origin permission gate             │
 │                                          │
 │  Page bridge (src/injected.js)           │
 │   injects window.nostr, relays requests  │
@@ -150,12 +158,36 @@ const did = `did:nostr:${pubkey}`
 That identifier authenticates you to Solid pods and travels across any
 NIP-07-aware app.
 
+## Where Podkey fits
+
+Podkey sits at the join of two mature, independently-built ecosystems and
+consolidates them behind one key:
+
+- **Nostr signing already exists.** NIP-07 browser signers (nos2x, Alby, and
+  others) are well-established. Podkey is fully NIP-07 compatible, so every
+  existing Nostr client works with it unchanged — it does not reinvent that
+  surface.
+- **[did:nostr](https://github.com/topics/did-nostr)** is an emerging ecosystem
+  of decentralized-identity tooling built on Nostr keys. Podkey treats your
+  public key as a first-class `did:nostr` identifier rather than just a signing
+  key.
+- **[Solid](https://solidproject.org)** (the W3C-aligned personal-data-pod
+  standard) is highly mature but has historically required OIDC/WebID identity
+  providers. Podkey authenticates to Solid pods over NIP-98 keyed to your
+  did:nostr — no OAuth redirect, no IdP account.
+
+The novel part is the **consolidation**: one locally-held, encrypted key that
+is simultaneously your Nostr signer, your `did:nostr` identity, and your Solid
+login. Podkey extends what existing Nostr signers do (NIP-07) with did:nostr
+identity and Solid/NIP-98 authentication, and adds an encrypted-at-rest vault on
+top.
+
 ## Development
 
 ```bash
 npm install
 npm run build      # bundle dependencies into the service worker
-npm test           # node --test, 133 cases
+npm test           # node --test, 141 cases (incl. vault crypto)
 npm run lint       # eslint, no-unused-vars as error
 ```
 
@@ -167,7 +199,8 @@ podkey/
 │   ├── crypto.js          # key generation & Schnorr signing
 │   ├── nip44.js           # NIP-44 v2 encrypt/decrypt
 │   ├── nip98-interceptor.js # page-context NIP-98 fetch/XHR auth
-│   ├── storage.js         # session-only key + trusted-origin storage
+│   ├── vault.js           # AES-GCM encrypted-at-rest key vault (scrypt)
+│   ├── storage.js         # session key cache + trusted-origin storage
 │   ├── injected.js        # content-script page bridge
 │   └── nostr-provider.js  # window.nostr implementation
 ├── popup/                 # popup + approval UI
@@ -196,8 +229,8 @@ uploads a sideloadable extension zip.
 3. Run `npm test` and `npm run lint` until both pass.
 4. Open a pull request.
 
-Good first contributions: extension icons (16/48/128px), test coverage, NIP-04,
-i18n, and documentation.
+Good first contributions: test coverage, NIP-04, i18n, `nsec`/`npub` Bech32
+display, and documentation.
 
 ## Troubleshooting
 
@@ -205,9 +238,11 @@ i18n, and documentation.
 extension is enabled, and check for another Nostr extension claiming
 `window.nostr`.
 
-**Events will not sign.** Generate or import a key first, and check the service
-worker console (the "service worker" link on `chrome://extensions`) for a
-blocked consent prompt.
+**Events will not sign.** Generate or import a key first. If the popup shows
+**Unlock**, the vault is locked (e.g. after a browser restart) — enter your
+passphrase to unlock for the session. Also check the service worker console
+(the "service worker" link on `chrome://extensions`) for a blocked consent
+prompt.
 
 **Build errors.** Reinstall dependencies (`npm install`) and confirm Node.js
 18 or newer.
@@ -220,8 +255,9 @@ AGPL-3.0. See [LICENSE](LICENSE).
 
 - **Repository**: https://github.com/JavaScriptSolidServer/podkey
 - **Issues**: https://github.com/JavaScriptSolidServer/podkey/issues
+- **Privacy policy**: [PRIVACY.md](PRIVACY.md)
 - **Test page**: https://javascriptsolidserver.github.io/podkey/test-page/
-- **did:nostr**: https://nostrcg.github.io/did-nostr/
+- **did:nostr**: https://nostrcg.github.io/did-nostr/ · [ecosystem](https://github.com/topics/did-nostr)
 - **NIP-07**: https://github.com/nostr-protocol/nips/blob/master/07.md
 - **NIP-98**: https://github.com/nostr-protocol/nips/blob/master/98.md
 - **Solid**: https://solidproject.org/

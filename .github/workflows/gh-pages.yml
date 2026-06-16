@@ -5,8 +5,10 @@ on:
     branches:
       - main
     paths:
+      - 'site/**'
       - 'test-page/**'
       - '.github/workflows/gh-pages.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,10 +32,18 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Assemble site (docs landing + privacy + test page)
+        run: |
+          mkdir -p _site
+          cp -r site/. _site/
+          mkdir -p _site/test-page
+          cp -r test-page/. _site/test-page/
+          echo "Assembled _site:" && ls -R _site | head -40
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './test-page'
+          path: './_site'
 
       - name: Deploy to GitHub Pages
         id: deployment

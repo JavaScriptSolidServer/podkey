@@ -18,9 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Per-origin signing consent.** The first request from a site opens an
   approval popup; closing it or a 60-second timeout denies. Approving grants
   per-origin trust that you can revoke from the popup.
-- **Session-only key storage.** The private key is held in
-  `chrome.storage.session`: in memory, cleared when the browser closes, never
-  copied to the page.
+- **Encrypted-at-rest key vault.** The private key is persisted only as an
+  AES-256-GCM ciphertext in `chrome.storage.local`, wrapped by a scrypt-derived
+  key from the user's passphrase (`src/vault.js`). On unlock the decrypted key
+  is cached in `chrome.storage.session` for fast signing and cleared when the
+  browser closes; the raw key never touches disk. New `UNLOCK_VAULT`/`LOCK_VAULT`
+  messages, a popup unlock screen, and a clear "Podkey is locked" prompt replace
+  the previous "No keypair found" error after a restart.
 - **NIP-98 Solid authentication.** Opt-in HTTP auth to Solid pods. Each token
   carries a fresh 16-byte nonce and binds the request body hash and the final
   redirect-aware URL, so one token authorises one request. Trusted Solid hosts
@@ -31,8 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   content-security policy across the popup and test page.
 - **Continuous integration.** `.github/workflows/ci.yml` runs build, test and
   lint on every pull request and push to `main`, and uploads a sideloadable
-  extension zip. The 133-case suite covers signing, NIP-44 vectors, NIP-98
-  token shape, the content-script message whitelist, and the consent flow.
+  extension zip. The 141-case suite covers signing, NIP-44 vectors, NIP-98
+  token shape, the content-script message whitelist, the consent flow, and the
+  vault crypto (round-trip, wrong passphrase, tamper, salt/iv freshness).
 
 ### Changed
 

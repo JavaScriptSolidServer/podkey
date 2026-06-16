@@ -46,16 +46,26 @@ This will:
 
 1. Click the **Podkey icon** (🔑) in your browser toolbar
 2. Click **"✨ Generate New Key"**
-3. Your new Nostr identity is ready! 🎉
+3. Choose an **encryption passphrase** (at least 8 characters) and confirm it
+4. Your new Nostr identity is ready, sealed under your passphrase! 🎉
 
 ### Import an Existing Key
 
 1. Click the **Podkey icon** (🔑) in your browser toolbar
 2. Click **"📥 Import Existing Key"**
 3. Paste your 64-character hexadecimal private key
-4. Click **"Import"**
+4. Choose an **encryption passphrase** (at least 8 characters) and confirm it
+5. Click **"Import"**
 
 ⚠️ **Warning**: Never share your private key with anyone!
+
+### Unlocking after a browser restart
+
+Your key is encrypted at rest, so when you restart the browser the popup shows
+an **Unlock** screen. Enter your passphrase to unlock it for the session — until
+you do, signing requests show a clear "Podkey is locked" prompt rather than
+failing silently. Your passphrase is never stored and cannot be recovered, so
+keep a backup of your private key (and the passphrase).
 
 ---
 
@@ -180,10 +190,13 @@ This enables:
 
 ⚠️ **DANGER**: Only do this if you need to backup your key!
 
-1. Click the Podkey icon
+1. Click the Podkey icon (unlock it first if it shows the Unlock screen)
 2. Click **"Export Key"** in the footer
 3. Confirm the warning
 4. Your private key will be shown (keep it safe!)
+
+You can also **Lock** the key on demand from the footer, or **Forget key** from
+the Unlock screen to wipe the encrypted vault and start over.
 
 ---
 
