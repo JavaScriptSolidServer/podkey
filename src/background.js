@@ -14,10 +14,13 @@ import {
   storeKeypair,
   getKeypair,
   hasKeypair,
+  getStoredPublicKey,
+  clearSessionKey,
   isTrustedOrigin,
   addTrustedOrigin,
   getAutoSign
 } from './storage.js';
+import { createVault, unlockVault, hasVault } from './vault.js';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
@@ -85,10 +88,16 @@ async function handleMessage (message, sender) {
       return await handleSignEvent(message.event, origin, sender);
 
     case 'GENERATE_KEYPAIR':
-      return await handleGenerateKeypair();
+      return await handleGenerateKeypair(message.passphrase);
 
     case 'IMPORT_KEYPAIR':
-      return await handleImportKeypair(message.privateKey);
+      return await handleImportKeypair(message.privateKey, message.passphrase);
+
+    case 'UNLOCK_VAULT':
+      return await handleUnlockVault(message.passphrase);
+
+    case 'LOCK_VAULT':
+      return await handleLockVault();
 
     case 'GET_KEYPAIR_STATUS':
       return await handleGetKeypairStatus();
@@ -116,14 +125,47 @@ async function handleMessage (message, sender) {
 }
 
 /**
+ * Ensure the private key is unlocked in the session before a signing or
+ * key-reading operation. Distinguishes three states so the error is actionable:
+ *   - unlocked (session key present) -> returns
+ *   - locked (encrypted vault on disk, no session key) -> opens the unlock UI
+ *     and throws a clear "locked" error instead of the old "No keypair found"
+ *   - empty (no vault at all) -> throws a "generate or import" error
+ */
+async function ensureUnlocked () {
+  if (await hasKeypair()) return;
+
+  if (await hasVault()) {
+    openUnlockPopup();
+    throw new Error('Podkey is locked. Open Podkey, unlock with your passphrase, and try again.');
+  }
+  throw new Error('No key in Podkey. Open the extension to generate or import a key first.');
+}
+
+/**
+ * Best-effort: surface the popup so the user can unlock. Never throws — the
+ * caller still rejects with the "locked" message if the window cannot open.
+ */
+function openUnlockPopup () {
+  try {
+    chrome.windows.create({
+      url: 'popup/popup.html',
+      type: 'popup',
+      width: 400,
+      height: 560,
+      focused: true
+    });
+  } catch (e) {
+    if (DEBUG) console.log('[Podkey] Could not open unlock popup:', e.message);
+  }
+}
+
+/**
  * Get public key with user permission
  */
 async function handleGetPublicKey (origin, _sender) {
-  // Check if keypair exists
-  const keyExists = await hasKeypair();
-  if (!keyExists) {
-    throw new Error('No keypair found. Please generate or import a key first.');
-  }
+  // Require an unlocked key (locked vault -> opens unlock UI; no key -> setup).
+  await ensureUnlocked();
 
   // Check if origin is trusted
   const trusted = await isTrustedOrigin(origin);
@@ -152,11 +194,8 @@ async function handleGetPublicKey (origin, _sender) {
  * Sign event with user permission
  */
 async function handleSignEvent (event, origin, _sender) {
-  // Check if keypair exists
-  const keyExists = await hasKeypair();
-  if (!keyExists) {
-    throw new Error('No keypair found. Please generate or import a key first.');
-  }
+  // Require an unlocked key (locked vault -> opens unlock UI; no key -> setup).
+  await ensureUnlocked();
 
   const keypair = await getKeypair();
 
@@ -220,10 +259,8 @@ async function handleSignEvent (event, origin, _sender) {
  * @returns {Promise<{privateKey: string, publicKey: string}>}
  */
 async function resolveKeypairForEncryption (origin, action) {
-  const keyExists = await hasKeypair();
-  if (!keyExists) {
-    throw new Error('No keypair found. Please generate or import a key first.');
-  }
+  // Require an unlocked key (locked vault -> opens unlock UI; no key -> setup).
+  await ensureUnlocked();
 
   const trusted = await isTrustedOrigin(origin);
   if (!trusted) {
@@ -294,13 +331,14 @@ async function handleNip44GetConversationKey (peerPubkey, origin) {
 }
 
 /**
- * Generate new keypair
+ * Generate a new keypair, seal it under the passphrase, and unlock the session.
  */
-async function handleGenerateKeypair () {
+async function handleGenerateKeypair (passphrase) {
   try {
     const keypair = await generateKeypair();
-    await storeKeypair(keypair.privateKey, keypair.publicKey);
-    if (DEBUG) console.log('[Podkey] Keypair generated and stored');
+    await createVault(keypair.privateKey, passphrase);     // encrypted at rest
+    await storeKeypair(keypair.privateKey, keypair.publicKey); // unlocked session
+    if (DEBUG) console.log('[Podkey] Keypair generated, sealed, and unlocked');
 
     return {
       publicKey: keypair.publicKey,
@@ -313,9 +351,9 @@ async function handleGenerateKeypair () {
 }
 
 /**
- * Import existing keypair
+ * Import an existing private key, seal it under the passphrase, and unlock.
  */
-async function handleImportKeypair (privateKey) {
+async function handleImportKeypair (privateKey, passphrase) {
   // Validate private key format
   if (!privateKey || privateKey.length !== 64) {
     throw new Error('Private key must be 64-char hex');
@@ -328,10 +366,10 @@ async function handleImportKeypair (privateKey) {
   // Derive public key
   const publicKey = getPublicKey(privateKey);
 
-  // Store keypair
-  await storeKeypair(privateKey, publicKey);
+  await createVault(privateKey, passphrase);     // encrypted at rest (validates passphrase)
+  await storeKeypair(privateKey, publicKey);     // unlocked session
 
-  if (DEBUG) console.log('[Podkey] Keypair imported');
+  if (DEBUG) console.log('[Podkey] Keypair imported and sealed');
 
   return {
     publicKey,
@@ -340,22 +378,60 @@ async function handleImportKeypair (privateKey) {
 }
 
 /**
- * Get keypair status
+ * Unlock the vault: decrypt the private key into the session with the
+ * passphrase. Throws 'Incorrect passphrase' on a bad passphrase.
  */
-async function handleGetKeypairStatus () {
-  const exists = await hasKeypair();
+async function handleUnlockVault (passphrase) {
+  const privateKey = await unlockVault(passphrase);   // throws on wrong passphrase
+  const publicKey = getPublicKey(privateKey);
+  await storeKeypair(privateKey, publicKey);          // populate session cache
 
-  if (!exists) {
-    return { exists: false };
-  }
-
-  const keypair = await getKeypair();
+  if (DEBUG) console.log('[Podkey] Vault unlocked');
 
   return {
-    exists: true,
-    publicKey: keypair.publicKey,
-    did: `did:nostr:${keypair.publicKey}`
+    publicKey,
+    did: `did:nostr:${publicKey}`
   };
+}
+
+/**
+ * Lock the vault: drop the in-memory key but keep the encrypted vault on disk.
+ */
+async function handleLockVault () {
+  await clearSessionKey();
+  if (DEBUG) console.log('[Podkey] Vault locked');
+  return { ok: true };
+}
+
+/**
+ * Get keypair status as one of three states the popup routes on:
+ *   - 'unlocked' — session key present (returns publicKey/did)
+ *   - 'locked'   — encrypted vault on disk, session cleared (returns the stored
+ *                  publicKey so the unlock screen can show the identity)
+ *   - 'none'     — no vault at all (show setup)
+ */
+async function handleGetKeypairStatus () {
+  if (await hasKeypair()) {
+    const keypair = await getKeypair();
+    return {
+      state: 'unlocked',
+      exists: true,
+      publicKey: keypair.publicKey,
+      did: `did:nostr:${keypair.publicKey}`
+    };
+  }
+
+  if (await hasVault()) {
+    const publicKey = await getStoredPublicKey();
+    return {
+      state: 'locked',
+      exists: true,
+      publicKey: publicKey || null,
+      did: publicKey ? `did:nostr:${publicKey}` : null
+    };
+  }
+
+  return { state: 'none', exists: false };
 }
 
 /**

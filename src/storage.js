@@ -1,11 +1,17 @@
 /**
  * Podkey - Secure storage for Nostr keys
  *
- * Private keys are stored in chrome.storage.session (in-memory only, never
- * persisted to disk, cleared when the service worker terminates).
+ * Two layers, by design:
+ *   - At rest: the private key is persisted only as an AES-GCM ciphertext via
+ *     vault.js (chrome.storage.local, passphrase-wrapped). The raw key never
+ *     touches disk.
+ *   - In use: once unlocked, the plaintext private key is cached here in
+ *     chrome.storage.session (in-memory, browser-session scoped) so signing is
+ *     fast. A browser restart clears the session; the user re-unlocks with
+ *     their passphrase (see vault.unlockVault).
  *
  * Public keys remain in chrome.storage.local so the popup can display the
- * user's pubkey/DID without requiring the private key to be unlocked.
+ * user's pubkey/DID even while the vault is locked.
  */
 
 const STORAGE_KEYS = {
@@ -100,6 +106,15 @@ export async function deleteKeypair() {
   ]);
 
   console.log('[Podkey] Keypair deleted from all storage');
+}
+
+/**
+ * Lock the session: drop the in-memory private key but keep the encrypted
+ * vault and public key on disk. The user re-unlocks with their passphrase.
+ * @returns {Promise<void>}
+ */
+export async function clearSessionKey() {
+  await chrome.storage.session.remove([STORAGE_KEYS.PRIVATE_KEY]);
 }
 
 /**
