@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Podkey — one key for Nostr, did:nostr & Solid</title>
+  <meta name="description" content="Podkey is a Manifest V3 browser extension: a NIP-07 Nostr signer, a did:nostr identity, and Solid pod authentication over NIP-98 — one encrypted key, held on your device." />
+  <link rel="icon" href="icon.svg" />
+  <style>
+    :root{
+      --bg:#0b0e12; --surface:#141920; --surface-2:#1b2129; --border:#262e38;
+      --text:#e7eaee; --muted:#9aa4b0; --faint:#6b7480;
+      --accent:#f5a623; --accent-2:#fbbf24; --ring:rgba(245,166,35,.25);
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.6;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent)}
+    a:hover{color:var(--accent-2)}
+    .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+    header{padding:26px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px}
+    .brand svg{width:26px;height:26px;color:var(--accent)}
+    nav a{margin-left:18px;color:var(--muted);text-decoration:none;font-size:14px}
+    nav a:hover{color:var(--text)}
+    .hero{padding:54px 0 34px;border-bottom:1px solid var(--border)}
+    .hero h1{font-size:40px;line-height:1.15;margin:0 0 14px;letter-spacing:-.02em}
+    .hero h1 .g{background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero p{font-size:18px;color:var(--muted);max-width:620px;margin:0 0 26px}
+    .cta{display:flex;gap:12px;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:10px;
+      font-weight:600;font-size:15px;text-decoration:none;border:1px solid var(--border)}
+    .btn-primary{background:var(--accent);color:#1a1206;border-color:var(--accent)}
+    .btn-primary:hover{background:var(--accent-2);color:#1a1206}
+    .btn-secondary{background:var(--surface);color:var(--text)}
+    .btn-secondary:hover{border-color:var(--accent)}
+    section{padding:40px 0;border-bottom:1px solid var(--border)}
+    h2{font-size:24px;margin:0 0 18px;letter-spacing:-.01em}
+    h3{font-size:16px;margin:0 0 6px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+    .card p{margin:0;color:var(--muted);font-size:14.5px}
+    .eco{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:8px}
+    .eco .card h3{color:var(--accent)}
+    code,pre{font-family:var(--mono);font-size:13.5px}
+    pre{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;overflow:auto}
+    code{background:var(--surface-2);padding:2px 6px;border-radius:6px}
+    pre code{background:none;padding:0}
+    ul.clean{margin:0;padding-left:20px;color:var(--muted)}
+    ul.clean li{margin:7px 0}
+    ul.clean strong{color:var(--text)}
+    .note{background:var(--surface-2);border:1px solid var(--border);border-left:3px solid var(--accent);
+      border-radius:8px;padding:12px 14px;color:var(--muted);font-size:14px}
+    footer{padding:30px 0 50px;color:var(--faint);font-size:13.5px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    footer a{color:var(--muted);text-decoration:none}
+    footer a:hover{color:var(--text)}
+    .pill{display:inline-block;font-size:12px;color:var(--accent);border:1px solid var(--border);
+      background:var(--surface);border-radius:999px;padding:3px 10px;margin-bottom:18px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="8" cy="15" r="4" /><path d="M10.85 12.15 19 4" /><path d="m18 5 2 2" /><path d="m15 8 2 2" />
+      </svg>
+      Podkey
+    </div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#ecosystem">Ecosystem</a>
+      <a href="#security">Security</a>
+      <a href="#install">Install</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="https://github.com/JavaScriptSolidServer/podkey">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <span class="pill">Manifest V3 · NIP-07 · NIP-98 · did:nostr · Solid</span>
+    <h1>One key for <span class="g">Nostr, did:nostr&nbsp;&amp; Solid</span></h1>
+    <p>Podkey is a browser extension that holds one encrypted key on your device and uses it
+       to sign Nostr events, carry your <code>did:nostr</code> identity, and log you in to
+       Solid pods — no accounts, no servers, no OAuth redirect.</p>
+    <div class="cta">
+      <a class="btn btn-primary" href="#install">Install</a>
+      <a class="btn btn-secondary" href="test-page/">Live test page</a>
+      <a class="btn btn-secondary" href="https://github.com/JavaScriptSolidServer/podkey">Source</a>
+    </div>
+  </div>
+
+  <section id="features">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><h3>NIP-07 signer</h3><p><code>getPublicKey</code>, <code>signEvent</code>, and <code>nip44.encrypt/decrypt</code> on <code>window.nostr</code> — every NIP-07 Nostr client works unchanged.</p></div>
+      <div class="card"><h3>Solid authentication</h3><p>NIP-98 HTTP auth to Solid pods, keyed to your did:nostr. No OAuth redirect, no identity-provider account.</p></div>
+      <div class="card"><h3>did:nostr identity</h3><p>Your public key <em>is</em> your <code>did:nostr</code> identifier, portable across any NIP-07-aware app.</p></div>
+      <div class="card"><h3>Encrypted vault</h3><p>The private key is sealed at rest with AES-256-GCM under a scrypt passphrase. The raw key never touches disk.</p></div>
+      <div class="card"><h3>Per-origin consent</h3><p>Approve a site once; revoke any time. Untrusted sites raise a consent prompt that denies on close or timeout.</p></div>
+      <div class="card"><h3>NIP-44 (v2)</h3><p>Encryption for NIP-17 / NIP-59 gift-wrapped DMs, checked against the official spec vectors. Keys stay in the worker.</p></div>
+    </div>
+  </section>
+
+  <section id="ecosystem">
+    <h2>Where Podkey fits</h2>
+    <p style="color:var(--muted);max-width:640px">Podkey sits at the join of two mature, independently-built ecosystems and consolidates them behind a single key.</p>
+    <div class="eco">
+      <div class="card"><h3>Nostr signing</h3><p>NIP-07 signers are well-established. Podkey is fully NIP-07 compatible — it doesn't reinvent signing, it extends it.</p></div>
+      <div class="card"><h3><a href="https://github.com/topics/did-nostr">did:nostr</a></h3><p>An emerging ecosystem of decentralized-identity tooling on Nostr keys. Podkey treats your pubkey as a first-class DID.</p></div>
+      <div class="card"><h3><a href="https://solidproject.org">Solid</a></h3><p>The W3C-aligned personal-data-pod standard. Podkey logs in over NIP-98 keyed to your did:nostr — no IdP account.</p></div>
+    </div>
+    <p style="color:var(--muted);margin-top:18px">The novel part is the <strong style="color:var(--text)">consolidation</strong>: one locally-held, encrypted key that is at once your Nostr signer, your <code>did:nostr</code> identity, and your Solid login.</p>
+  </section>
+
+  <section id="security">
+    <h2>Security model</h2>
+    <ul class="clean">
+      <li><strong>Encrypted at rest.</strong> The private key is stored only as an AES-256-GCM ciphertext in extension storage, wrapped by a scrypt-derived key from your passphrase.</li>
+      <li><strong>Unlocked in memory.</strong> On unlock the decrypted key is cached for the browser session for fast signing, then cleared when the browser closes. It is never copied to the page.</li>
+      <li><strong>Signing stays in the worker.</strong> Signing, NIP-44 and NIP-98 run in the background service worker; the page only ever sees a public key, signature, ciphertext, or auth header.</li>
+      <li><strong>No telemetry.</strong> Podkey makes no network requests of its own and collects nothing. See the <a href="privacy.html">privacy policy</a>.</li>
+    </ul>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p style="color:var(--muted)">From source, or a packaged release:</p>
+    <pre><code>git clone https://github.com/JavaScriptSolidServer/podkey.git
+cd podkey
+npm install
+npm run build      # bundles deps into the service worker</code></pre>
+    <p style="color:var(--muted)">Then open <code>chrome://extensions</code>, enable <strong>Developer mode</strong>, click <strong>Load unpacked</strong>, and select the folder containing <code>manifest.json</code>. Pin the 🔑 icon, then generate or import a key and set an encryption passphrase.</p>
+    <p class="note">Manifest V3 · bundles all code (no remotely-hosted scripts) · <code>script-src 'self'</code> CSP · AGPL-3.0.</p>
+  </section>
+
+  <footer>
+    <span>Podkey — your keys, your identity, your data.</span>
+    <span>
+      <a href="https://github.com/JavaScriptSolidServer/podkey">GitHub</a> ·
+      <a href="privacy.html">Privacy</a> ·
+      <a href="https://github.com/JavaScriptSolidServer/podkey/blob/main/LICENSE">AGPL-3.0</a>
+    </span>
+  </footer>
+
+</div>
+</body>
+</html>

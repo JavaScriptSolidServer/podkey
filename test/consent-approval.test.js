@@ -11,8 +11,9 @@
  *   - deny rejects the request ("User denied ...")
  *   - the 60s timeout auto-denies
  *   - APPROVE_SIGNING with approved:false (popup beforeunload = deny) rejects
- *   - trusted-origin + autoSign auto-path: kind 27235 Solid auth signs with NO
- *     prompt; any other kind still prompts even when trusted+autoSign
+ *   - trusted-origin auto-path: a trusted origin signs ANY event kind with no
+ *     prompt (general NIP-07 signer); an untrusted origin always prompts, and
+ *     approving it establishes revocable trust
  */
 
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
@@ -186,7 +187,7 @@ describe('consent gate / approval flow', () => {
   });
 });
 
-describe('trusted-origin auto-path (autoSign)', () => {
+describe('trusted-origin auto-path (general signer)', () => {
   let keypair;
 
   beforeEach(async () => {
@@ -197,49 +198,49 @@ describe('trusted-origin auto-path (autoSign)', () => {
     await storeKeypair(keypair.privateKey, keypair.publicKey);
   });
 
-  it('signs a kind-27235 Solid event with NO prompt when trusted + autoSign', async () => {
+  it('signs a kind-27235 Solid event with NO prompt when the origin is trusted', async () => {
     await addTrustedOrigin('https://pod.test');
-    await setAutoSign(true);
     const result = await send({ type: 'SIGN_EVENT', event: SOLID_EVENT, origin: 'https://pod.test' });
-    assert.equal(windowsCreated.length, 0, 'auto-sign path must not open a popup');
+    assert.equal(windowsCreated.length, 0, 'trusted origin must not open a popup');
     assert.equal(result.kind, 27235);
     assert.equal(result.pubkey, keypair.publicKey);
     assert.equal(result.sig.length, 128);
   });
 
-  it('still PROMPTS for a non-Solid kind even when trusted + autoSign', async () => {
+  it('signs a non-Solid kind with NO prompt when the origin is trusted (general signer)', async () => {
+    // The forum publishes kind 0/10002/22242 on every load; a trusted origin
+    // must sign these without a per-event prompt or Podkey is unusable as a
+    // general NIP-07 signer. autoSign is irrelevant — trust is the grant.
     await addTrustedOrigin('https://pod.test');
-    await setAutoSign(true);
-    const pending = send({ type: 'SIGN_EVENT', event: NOTE_EVENT, origin: 'https://pod.test' });
-    await flush();
-    assert.equal(windowsCreated.length, 1, 'non-Solid kind must still require approval');
-    respond(lastRequestId(), true);
-    const result = await pending;
+    const result = await send({ type: 'SIGN_EVENT', event: NOTE_EVENT, origin: 'https://pod.test' });
+    assert.equal(windowsCreated.length, 0, 'trusted origin signs any kind without a popup');
     assert.equal(result.kind, 1);
+    assert.equal(result.sig.length, 128);
   });
 
-  it('PROMPTS for a Solid event when autoSign is OFF (even if trusted)', async () => {
-    await addTrustedOrigin('https://pod.test');
-    await setAutoSign(false);
-    const pending = send({ type: 'SIGN_EVENT', event: SOLID_EVENT, origin: 'https://pod.test' });
+  it('ALWAYS prompts an untrusted origin, regardless of autoSign', async () => {
+    // No silent first-use: an origin the user has never approved must prompt,
+    // even for a Solid event and even with the autoSign convenience enabled.
+    await setAutoSign(true);
+    const pending = send({ type: 'SIGN_EVENT', event: SOLID_EVENT, origin: 'https://untrusted.test' });
     await flush();
-    assert.equal(windowsCreated.length, 1, 'autoSign off must require explicit approval');
+    assert.equal(windowsCreated.length, 1, 'untrusted origin must require explicit approval');
     respond(lastRequestId(), true);
     const result = await pending;
     assert.equal(result.kind, 27235);
   });
 
-  it('approving an untrusted signing request trusts the origin (no re-prompt)', async () => {
-    await setAutoSign(true);
-    // First request: untrusted -> prompt -> approve.
+  it('approving an untrusted signing request trusts the origin (no re-prompt, any kind)', async () => {
+    // First request: untrusted -> prompt -> approve (establishes trust).
     const first = send({ type: 'SIGN_EVENT', event: SOLID_EVENT, origin: 'https://new.test' });
     await flush();
     assert.equal(windowsCreated.length, 1);
     respond(lastRequestId(), true);
     await first;
-    // Second Solid request from the now-trusted origin: auto-signs, no popup.
-    const second = await send({ type: 'SIGN_EVENT', event: SOLID_EVENT, origin: 'https://new.test' });
+    // Second request from the now-trusted origin — a *different* (non-Solid)
+    // kind — auto-signs with no further popup.
+    const second = await send({ type: 'SIGN_EVENT', event: NOTE_EVENT, origin: 'https://new.test' });
     assert.equal(windowsCreated.length, 1, 'origin became trusted; no second popup');
-    assert.equal(second.kind, 27235);
+    assert.equal(second.kind, 1);
   });
 });

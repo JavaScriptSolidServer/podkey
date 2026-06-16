@@ -102,8 +102,8 @@
 }
 
 body {
-  width: 380px;
-  min-height: 480px;
+  width: 400px;
+  min-height: 460px;
   font-family: var(--sans);
   background: var(--bg);
   color: var(--text);
@@ -113,7 +113,7 @@ body {
 }
 
 .screen {
-  padding: 18px 18px 14px;
+  padding: 16px 18px 12px;
 }
 
 /* ---- Header ---- */
@@ -121,7 +121,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .header.center {
@@ -191,7 +191,7 @@ h2 {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -371,7 +371,8 @@ label {
   margin-bottom: 7px;
 }
 
-textarea {
+textarea,
+.input {
   width: 100%;
   padding: 11px;
   border: 1px solid var(--border-strong);
@@ -385,11 +386,18 @@ textarea {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-textarea::placeholder {
+.input {
+  resize: none;
+  margin-bottom: 8px;
+}
+
+textarea::placeholder,
+.input::placeholder {
   color: var(--text-faint);
 }
 
-textarea:focus {
+textarea:focus,
+.input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-ring);
@@ -503,7 +511,7 @@ input:focus-visible + .slider {
 
 /* ---- Trusted sites ---- */
 .trusted-list {
-  max-height: 168px;
+  max-height: 120px;
   overflow-y: auto;
   margin: -2px;
   padding: 2px;
@@ -599,7 +607,7 @@ input:focus-visible + .slider {
 /* ---- Footer ---- */
 .footer {
   text-align: center;
-  padding: 12px 0 2px;
+  padding: 10px 0 2px;
   font-size: 12px;
   color: var(--text-muted);
 }
