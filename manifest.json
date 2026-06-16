@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Podkey",
-  "version": "0.0.7",
-  "description": "did:nostr and Solid authentication extension - NIP-07 wallet for decentralized identity",
+  "version": "0.0.8",
+  "description": "Nostr (NIP-07) signer and Solid (NIP-98) login. One did:nostr key, encrypted on your device.",
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
