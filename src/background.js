@@ -21,6 +21,7 @@ import {
   getAutoSign
 } from './storage.js';
 import { createVault, unlockVault, hasVault } from './vault.js';
+import { normalizeSecretKeyToHex } from './keyformat.js';
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
 
@@ -404,20 +405,17 @@ async function handleGenerateKeypair (passphrase) {
  * Import an existing private key, seal it under the passphrase, and unlock.
  */
 async function handleImportKeypair (privateKey, passphrase) {
-  // Validate private key format
-  if (!privateKey || privateKey.length !== 64) {
-    throw new Error('Private key must be 64-char hex');
-  }
+  // Accept either raw 64-char hex or an `nsec1…` (NIP-19) key. Most Nostr apps
+  // display keys in nsec form, so an existing-key import must handle it inline —
+  // convert to Podkey's canonical hex without treating the format as an error.
+  // `normalizeSecretKeyToHex` throws a neutral "Invalid key" on anything else.
+  const hexKey = normalizeSecretKeyToHex(privateKey);
 
-  if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
-    throw new Error('Private key must be valid hexadecimal');
-  }
+  // Derive public key (also validates the scalar is a usable secp256k1 key).
+  const publicKey = getPublicKey(hexKey);
 
-  // Derive public key
-  const publicKey = getPublicKey(privateKey);
-
-  await createVault(privateKey, passphrase);     // encrypted at rest (validates passphrase)
-  await storeKeypair(privateKey, publicKey);     // unlocked session
+  await createVault(hexKey, passphrase);     // encrypted at rest (validates passphrase)
+  await storeKeypair(hexKey, publicKey);     // unlocked session
 
   if (DEBUG) console.log('[Podkey] Keypair imported and sealed');
 
