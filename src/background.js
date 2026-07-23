@@ -125,18 +125,68 @@ async function handleMessage (message, sender) {
 }
 
 /**
+ * Coalesce concurrent unlock requests behind a SINGLE passphrase prompt.
+ *
+ * A page that logs in fires several key-using requests back to back —
+ * `GET_PUBLIC_KEY` (identity), `SIGN_EVENT` (the NIP-42 relay AUTH), and
+ * `nip44.decrypt` (gift-wrapped DMs). Each one used to hit `ensureUnlocked`
+ * while the vault was still locked, open its OWN popup, and reject immediately.
+ * The user therefore faced three passphrase prompts, and the rejected
+ * `nip44.decrypt` made encrypted DMs silently un-readable (the relying app saw a
+ * "locked" error, not a decryptable message). Here the first locked caller opens
+ * ONE popup and every concurrent caller awaits the same unlock; a single
+ * passphrase entry — which writes the key into `chrome.storage.session` — resolves
+ * them all. `chrome.storage.onChanged` reliably wakes the MV3 service worker, so
+ * the wait survives an idle eviction of the background. Returns `true` if the
+ * vault became unlocked, `false` on timeout.
+ */
+let pendingUnlock = null;
+
+function awaitUnlock () {
+  if (pendingUnlock) return pendingUnlock;
+
+  pendingUnlock = new Promise((resolve) => {
+    let settled = false;
+    let timer;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      chrome.storage.onChanged.removeListener(onChange);
+      clearTimeout(timer);
+      pendingUnlock = null;
+      resolve(ok);
+    };
+    // Any write to session storage may be the unlocked key landing — confirm
+    // with hasKeypair() rather than assuming.
+    const onChange = async (_changes, area) => {
+      if (area === 'session' && (await hasKeypair())) finish(true);
+    };
+    chrome.storage.onChanged.addListener(onChange);
+    // Two minutes for the user to find the popup and type their passphrase.
+    timer = setTimeout(() => finish(false), 120000);
+    // Only prompt if the key didn't already land in the race window between the
+    // caller's hasKeypair() check and this listener being registered.
+    hasKeypair().then((already) => (already ? finish(true) : openUnlockPopup()));
+  });
+
+  return pendingUnlock;
+}
+
+/**
  * Ensure the private key is unlocked in the session before a signing or
  * key-reading operation. Distinguishes three states so the error is actionable:
  *   - unlocked (session key present) -> returns
- *   - locked (encrypted vault on disk, no session key) -> opens the unlock UI
- *     and throws a clear "locked" error instead of the old "No keypair found"
+ *   - locked (encrypted vault on disk, no session key) -> opens ONE unlock UI,
+ *     waits for the user's single passphrase entry (shared across concurrent
+ *     callers), then returns; only throws if the unlock times out
  *   - empty (no vault at all) -> throws a "generate or import" error
  */
 async function ensureUnlocked () {
   if (await hasKeypair()) return;
 
   if (await hasVault()) {
-    openUnlockPopup();
+    const unlocked = await awaitUnlock();
+    if (unlocked && (await hasKeypair())) return;
     throw new Error('Podkey is locked. Open Podkey, unlock with your passphrase, and try again.');
   }
   throw new Error('No key in Podkey. Open the extension to generate or import a key first.');
