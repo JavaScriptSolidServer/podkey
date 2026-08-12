@@ -33,6 +33,17 @@ async function bundle () {
       }
     });
 
+    await build({
+      entryPoints: [join(rootDir, 'popup/popup.js')],
+      bundle: true,
+      outfile: join(rootDir, 'popup/popup.bundle.js'),
+      format: 'iife',
+      platform: 'browser',
+      target: 'es2020',
+      sourcemap: false,
+      minify: false
+    });
+
     console.log('✅ Background service worker bundled successfully!');
     console.log('   Output: src/background.bundle.js\n');
 

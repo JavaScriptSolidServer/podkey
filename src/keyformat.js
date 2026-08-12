@@ -131,6 +131,38 @@ export function nsecToHex (nsec) {
 }
 
 /**
+ * Encode 5-bit words as a bech32 string with the BIP-173 checksum — the exact
+ * inverse of bech32Decode above, sharing its polymod/hrpExpand/CHARSET.
+ * @param {string} hrp
+ * @param {number[]} words
+ * @returns {string}
+ */
+function bech32Encode (hrp, words) {
+  const values = hrpExpand(hrp).concat(words, [0, 0, 0, 0, 0, 0]);
+  const mod = polymod(values) ^ BECH32_CONST;
+  let out = hrp + '1';
+  for (const word of words) out += CHARSET[word];
+  for (let i = 0; i < 6; i++) out += CHARSET[(mod >>> (5 * (5 - i))) & 31];
+  return out;
+}
+
+/**
+ * Encode a 64-char hex private key as its NIP-19 `nsec1…` form — the standard
+ * interchange format Nostr apps expect, so an exported backup can be pasted
+ * anywhere (including back into Podkey, whose import accepts both forms).
+ * @param {string} hex 64-char hex private key
+ * @returns {string} nsec1… bech32 string
+ */
+export function hexToNsec (hex) {
+  if (typeof hex !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('Invalid key');
+  }
+  const bytes = [];
+  for (let i = 0; i < 64; i += 2) bytes.push(parseInt(hex.slice(i, i + 2), 16));
+  return bech32Encode('nsec', convertBits(bytes, 8, 5, true));
+}
+
+/**
  * Normalise a pasted private key into canonical 64-char lowercase hex, accepting
  * either raw hex or an `nsec1…` bech32 key. The nsec form is converted inline so
  * an existing-key import "just works" regardless of which form the user pasted.

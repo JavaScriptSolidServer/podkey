@@ -68,7 +68,7 @@ stays inside the extension and never reaches the page.
 git clone https://github.com/JavaScriptSolidServer/podkey.git
 cd podkey
 npm install
-npm run build      # bundles @noble deps into src/background.bundle.js
+npm run build      # bundles the background worker and passkey-enabled popup
 ```
 
 Then load the `podkey` directory as an unpacked extension (steps 2–4 above).

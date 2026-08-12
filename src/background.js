@@ -76,10 +76,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 /**
  * Handle incoming messages
  */
+// Key-material operations are only ever initiated by extension UI (the action
+// popup, or the dedicated ceremony window opened via chrome.windows.create),
+// never on behalf of a page. The content-script whitelist in injected.js
+// already keeps pages away from these, but that guarantee lives in one Set in
+// another file — so reject them here too unless the sender is one of our own
+// extension pages.
+//
+// The discriminator is the sender's extension origin, NOT sender.tab: the
+// ceremony window is a real browser tab, so a sender.tab check would wrongly
+// reject the very passkey flow these types exist for. A content script instead
+// reports the web page's URL/origin, so an chrome-extension://<own-id> prefix
+// cleanly separates trusted extension UI from page-injected content.
+const EXTENSION_UI_ONLY_TYPES = new Set([
+  'GENERATE_KEYPAIR',
+  'IMPORT_KEYPAIR',
+  'UNLOCK_VAULT',
+  'LOCK_VAULT',
+  'SET_SESSION_KEY',
+  'GET_KEYPAIR_STATUS'
+]);
+
+function isExtensionUiSender (sender) {
+  if (!sender || sender.id !== chrome.runtime.id) return false;
+  const ownOrigin = `chrome-extension://${chrome.runtime.id}`;
+  // Extension pages report a chrome-extension URL/origin for our own id; a
+  // content script reports the host page's URL even though sender.id matches.
+  const from = sender.url || sender.origin || '';
+  return from.startsWith(ownOrigin);
+}
+
 async function handleMessage (message, sender) {
   const { type, origin } = message;
 
   if (DEBUG) console.log('[Podkey] Message received:', type, 'from', origin || 'popup');
+
+  if (EXTENSION_UI_ONLY_TYPES.has(type) && !isExtensionUiSender(sender)) {
+    throw new Error(`${type} is not allowed from web content`);
+  }
 
   switch (type) {
     case 'GET_PUBLIC_KEY':
@@ -102,6 +136,9 @@ async function handleMessage (message, sender) {
 
     case 'GET_KEYPAIR_STATUS':
       return await handleGetKeypairStatus();
+
+    case 'SET_SESSION_KEY':
+      return await handleSetSessionKey(message.privateKey);
 
     case 'NIP44_ENCRYPT':
       return await handleNip44Encrypt(message.pubkey, message.plaintext, origin);
@@ -185,10 +222,11 @@ function awaitUnlock () {
 async function ensureUnlocked () {
   if (await hasKeypair()) return;
 
-  if (await hasVault()) {
+  const { podkey_passkey: passkey } = await chrome.storage.local.get(['podkey_passkey']);
+  if ((await hasVault()) || passkey) {
     const unlocked = await awaitUnlock();
     if (unlocked && (await hasKeypair())) return;
-    throw new Error('Podkey is locked. Open Podkey, unlock with your passphrase, and try again.');
+    throw new Error('Podkey is locked. Open Podkey, unlock it, and try again.');
   }
   throw new Error('No key in Podkey. Open the extension to generate or import a key first.');
 }
@@ -442,6 +480,17 @@ async function handleUnlockVault (passphrase) {
   };
 }
 
+async function handleSetSessionKey (privateKey) {
+  const hexKey = normalizeSecretKeyToHex(privateKey);
+  const publicKey = getPublicKey(hexKey);
+  const storedPublicKey = await getStoredPublicKey();
+  if (storedPublicKey && storedPublicKey !== publicKey) {
+    throw new Error('Passkey produced a different identity');
+  }
+  await storeKeypair(hexKey, publicKey);
+  return { state: 'unlocked', exists: true, publicKey, did: `did:nostr:${publicKey}` };
+}
+
 /**
  * Lock the vault: drop the in-memory key but keep the encrypted vault on disk.
  */
@@ -469,7 +518,8 @@ async function handleGetKeypairStatus () {
     };
   }
 
-  if (await hasVault()) {
+  const { podkey_passkey: passkey } = await chrome.storage.local.get(['podkey_passkey']);
+  if ((await hasVault()) || passkey) {
     const publicKey = await getStoredPublicKey();
     return {
       state: 'locked',
@@ -477,6 +527,13 @@ async function handleGetKeypairStatus () {
       publicKey: publicKey || null,
       did: publicKey ? `did:nostr:${publicKey}` : null
     };
+  }
+
+  // No session key, vault, or passkey config: a stored public key here is an
+  // orphan from an interrupted setup. Clear it so it cannot later trip the
+  // SET_SESSION_KEY different-identity guard against a fresh derivation.
+  if (await getStoredPublicKey()) {
+    await chrome.storage.local.remove(['podkey_public_key']);
   }
 
   return { state: 'none', exists: false };
