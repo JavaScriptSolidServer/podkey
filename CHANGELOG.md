@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **FIDO2 / WebAuthn passkey master identity (advanced).** Create a Nostr
+  identity whose secret key is derived from a hardware passkey via the WebAuthn
+  **PRF** extension (HKDF-SHA-256, domain `podkey/nostr-secret/v1`), with no
+  passphrase — the passkey reproduces the same key at every unlock. A separate
+  *passkey unlock* mode instead wraps an existing passphrase key with an
+  AES-256-GCM key derived from the passkey PRF (`podkey/wrap/v1`). Both require a
+  PRF-capable authenticator (a phone passkey, a modern security key, or a
+  platform authenticator with hmac-secret). The derived flow shows a one-time
+  `nsec` backup that must be acknowledged before the identity is persisted.
+  Framed as an advanced tier for managing agents or working under compliance
+  rules; the ordinary Generate/Import flows are unchanged. Specs:
+  `site/passkey-identity.html`, `site/did-nostr.html`.
+- **"Start over" on the main screen.** A footer action that wipes the vault,
+  public key and passkey config and returns to the setup screen, so an existing
+  user can reset to the initial state (and reach passkey-derived creation)
+  without locking first.
+
+### Fixed
+
+- **Survive an invalidated extension context.** When the extension is reloaded
+  or updated while a page stays open, the orphaned content script no longer
+  floods the console with `Extension context invalidated` on every request from
+  high-frequency callers; it latches the dead context once, restores native
+  `fetch`/XHR, and answers silently until the tab is reloaded.
+- **Passkey ceremony compatibility and errors.** Stop requesting a discoverable
+  (resident) credential Podkey never uses — it stores the credential id and
+  unlocks via `allowCredentials` — fixing `makeCredential` failures on some
+  TPM-backed authenticators. Surface actionable messages for a missing PRF /
+  hmac-secret extension and for a cancelled or timed-out ceremony, instead of
+  the raw WebAuthn `NotAllowedError`.
+
 ## [0.0.8] - 2026-07-10
 
 ### Added

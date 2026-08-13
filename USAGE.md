@@ -59,6 +59,39 @@ This will:
 
 ⚠️ **Warning**: Never share your private key with anyone!
 
+### Create a passkey-derived identity (advanced)
+
+This binds your Nostr identity to a **FIDO2 passkey** — hardware-backed and
+unlocked with biometrics or a security key, with no passphrase. It is aimed at
+managing agents or working under compliance rules; most users can skip it.
+
+**You need a PRF-capable authenticator**: a phone passkey (via the browser's
+QR / "use a different device" prompt), a modern security key, or a platform
+authenticator that supports the WebAuthn **PRF (hmac-secret)** extension.
+
+1. Click the **Podkey icon** (🔑), then expand **"Advanced: passkey identity"**
+2. Click **"Create identity from a passkey"** and confirm the warning
+3. Podkey opens a dedicated window and runs the passkey ceremony. **You are
+   prompted twice** — once to register the passkey, once to derive the key — so
+   confirm both prompts (biometric or security-key touch)
+4. Save the shown **`nsec` backup** — it is the only way to recover the identity
+   if the passkey is lost — then tick the box and click **"Create identity"**
+
+After setup, the Unlock screen offers **"Unlock with passkey"**: one biometric
+tap re-derives the same key, no passphrase.
+
+> **Passkey unlock for a passphrase key.** If you already have a passphrase key,
+> the main screen's **Settings → Passkey unlock → Set up** wraps that existing
+> key with your passkey instead of deriving a new one. This also needs a
+> PRF-capable authenticator.
+
+### Start over (reset to setup)
+
+To wipe the current identity and return to the setup screen — for example to
+switch to a passkey-derived identity — use **"Start over"** in the main screen
+footer. This deletes the encrypted vault, public key and passkey config, so
+**export your key first** if you might need it again.
+
 ### Unlocking after a browser restart
 
 Your key is encrypted at rest, so when you restart the browser the popup shows
@@ -245,6 +278,18 @@ npm run lint
 - Make sure you've generated or imported a key
 - Check for permission prompts that may be blocked
 - Check the extension console (click "service worker" link in chrome://extensions)
+
+### Passkey identity won't create
+
+- **"…timed out or was not allowed" right after the biometric.** Your
+  authenticator likely lacks the WebAuthn **PRF (hmac-secret)** extension, or a
+  prompt was cancelled. Podkey prompts twice (register, then derive) — confirm
+  both. Try a phone passkey (QR prompt) or a modern security key.
+- **Fingerprint scans but is rejected (`verify-no-match`).** This is your OS
+  fingerprint stack, not Podkey — re-enrol the finger and confirm it verifies
+  before retrying.
+- The derived and wrapped passkey modes both require PRF; on an authenticator
+  without it, use the passphrase-based Generate/Import flow instead.
 
 ### Build errors
 

@@ -158,6 +158,26 @@ const did = `did:nostr:${pubkey}`
 That identifier authenticates you to Solid pods and travels across any
 NIP-07-aware app.
 
+## Passkey identity (advanced)
+
+Podkey can bind your Nostr identity to a **FIDO2 / WebAuthn passkey** instead of
+a passphrase. Two modes, both requiring an authenticator that supports the
+WebAuthn **PRF (hmac-secret)** extension — a phone passkey, a modern security
+key, or a platform authenticator:
+
+- **Derived** — the secret key is computed from the passkey's PRF output via
+  HKDF-SHA-256 (`podkey/nostr-secret/v1`). No passphrase; the passkey reproduces
+  the same key at every unlock. A one-time `nsec` backup is shown and must be
+  acknowledged before the identity is created.
+- **Wrapped** — an existing passphrase key is sealed with an AES-256-GCM key
+  derived from the passkey PRF (`podkey/wrap/v1`), so you can unlock with
+  biometrics instead of typing the passphrase.
+
+It is an advanced tier aimed at managing agents or working under compliance
+rules; the Generate/Import flows are unchanged. The construction is specified in
+[`site/passkey-identity.html`](site/passkey-identity.html), and the DID layer in
+[`site/did-nostr.html`](site/did-nostr.html).
+
 ## Where Podkey fits
 
 Podkey sits at the join of two mature, independently-built ecosystems and
@@ -186,7 +206,7 @@ top.
 ```bash
 npm install
 npm run build      # bundle dependencies into the service worker
-npm test           # node --test, 141 cases (incl. vault crypto)
+npm test           # node --test, 169 cases (incl. vault & passkey crypto)
 npm run lint       # eslint, no-unused-vars as error
 ```
 
@@ -196,8 +216,11 @@ podkey/
 ├── src/
 │   ├── background.js      # service worker: message handling, consent gate
 │   ├── crypto.js          # key generation & Schnorr signing
+│   ├── passkey.js         # FIDO2/WebAuthn PRF identity derive + wrap
+│   ├── keyformat.js       # nsec/npub bech32 encode/decode
 │   ├── nip44.js           # NIP-44 v2 encrypt/decrypt
 │   ├── nip98-interceptor.js # page-context NIP-98 fetch/XHR auth
+│   ├── auth-header-utils.js # NIP-98 Authorization header helpers
 │   ├── vault.js           # AES-GCM encrypted-at-rest key vault (scrypt)
 │   ├── storage.js         # session key cache + trusted-origin storage
 │   ├── injected.js        # content-script page bridge
@@ -242,6 +265,14 @@ extension is enabled, and check for another Nostr extension claiming
 passphrase to unlock for the session. Also check the service worker console
 (the "service worker" link on `chrome://extensions`) for a blocked consent
 prompt.
+
+**Passkey identity fails right after the biometric.** The WebAuthn ceremony
+reports `NotAllowedError` ("timed out or was not allowed") when a prompt is
+cancelled, times out, or the authenticator lacks the **PRF (hmac-secret)**
+extension Podkey needs to derive the key. Podkey prompts twice — register, then
+derive — so confirm both. Use a phone passkey or a modern security key if your
+local authenticator has no PRF. A fingerprint that scans but is rejected
+(`verify-no-match`) is an OS enrolment issue, not Podkey.
 
 **Build errors.** Reinstall dependencies (`npm install`) and confirm Node.js
 18 or newer.
