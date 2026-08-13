@@ -19,13 +19,53 @@ interceptorScript.onerror = function () {
 };
 (document.head || document.documentElement).appendChild(interceptorScript);
 
+// When the extension is reloaded, updated, or disabled while this page stays
+// open, the content script is orphaned: every chrome.runtime.* call throws
+// "Extension context invalidated." High-frequency callers (e.g. Proton's
+// event-manager poll fires a fetch per tick) would otherwise flood the console
+// with an identical stack forever. Latch the dead context on first sight, tell
+// the page-context interceptor to un-patch, and answer all later requests with
+// a silent null. A tab reload re-injects fresh scripts against the live context.
+let podkeyContextValid = true;
+
+function respondNip98 (id, result) {
+  window.dispatchEvent(new CustomEvent('podkey-nip98-response', {
+    detail: { id, result: result || null }
+  }));
+}
+
+function isDeadContextError (message) {
+  return /Extension context invalidated|message port closed|receiving end does not exist/i.test(message || '');
+}
+
+function disablePodkeyOnDeadContext () {
+  if (!podkeyContextValid) return; // log + signal exactly once
+  podkeyContextValid = false;
+  console.warn(
+    '[Podkey] Extension context invalidated (extension was reloaded/updated). ' +
+    'NIP-98 injection disabled for this page — reload the tab to re-enable.'
+  );
+  // Ask the page-context interceptor to restore native fetch/XHR so it stops
+  // round-tripping to a dead extension on every request.
+  window.dispatchEvent(new CustomEvent('podkey-nip98-disable'));
+}
+
 // Listen for NIP-98 auth requests from page context. The request body never
 // crosses this boundary -- the page context computes its SHA-256 (the only
 // place FormData / URLSearchParams / streamed bodies survive intact) and sends
 // only the hex digest for the NIP-98 `payload` tag.
 window.addEventListener('podkey-nip98-request', async (event) => {
-  const { id, url, method, bodyHash } = event.detail;
+  const { id } = event.detail;
 
+  // Fast path: context already known dead, or chrome.runtime torn down
+  // (runtime.id becomes undefined in an orphaned content script).
+  if (!podkeyContextValid || !chrome.runtime?.id) {
+    disablePodkeyOnDeadContext();
+    respondNip98(id, null);
+    return;
+  }
+
+  const { url, method, bodyHash } = event.detail;
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'CREATE_NIP98_AUTH_HEADER',
@@ -38,21 +78,17 @@ window.addEventListener('podkey-nip98-request', async (event) => {
       throw new Error(chrome.runtime.lastError.message);
     }
 
-    // Send response back to page context
-    window.dispatchEvent(new CustomEvent('podkey-nip98-response', {
-      detail: {
-        id,
-        result: response || null
-      }
-    }));
+    respondNip98(id, response);
   } catch (error) {
-    console.error('[Podkey] Error handling NIP-98 request:', error);
-    window.dispatchEvent(new CustomEvent('podkey-nip98-response', {
-      detail: {
-        id,
-        result: null
-      }
-    }));
+    // The orphaned-context error is expected after an extension reload: latch
+    // and go quiet instead of logging per request. Anything else is a genuine
+    // fault worth surfacing.
+    if (isDeadContextError(error?.message)) {
+      disablePodkeyOnDeadContext();
+    } else {
+      console.error('[Podkey] Error handling NIP-98 request:', error);
+    }
+    respondNip98(id, null);
   }
 });
 

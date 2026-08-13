@@ -251,5 +251,19 @@
     return originalXHRSend.apply(this, [body]);
   };
 
+  // If the content-script bridge reports the extension context is gone (the
+  // extension was reloaded/updated while this page stayed open), stop
+  // intercepting and restore the native network APIs. Without this we keep
+  // round-tripping a CustomEvent per request to a dead extension. A tab reload
+  // re-injects a fresh interceptor bound to the live extension.
+  window.addEventListener('podkey-nip98-disable', function restoreNative () {
+    window.removeEventListener('podkey-nip98-disable', restoreNative);
+    window.fetch = originalFetch;
+    XMLHttpRequest.prototype.open = originalXHROpen;
+    XMLHttpRequest.prototype.send = originalXHRSend;
+    XMLHttpRequest.prototype.setRequestHeader = originalXHRSetRequestHeader;
+    if (DEBUG) console.log('[Podkey] Context invalidated — native fetch/XHR restored');
+  });
+
   if (DEBUG) console.log('[Podkey] NIP-98 interceptor injected into page context');
 })();
