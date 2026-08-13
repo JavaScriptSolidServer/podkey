@@ -83,34 +83,80 @@ export function newPasskeySalt () {
 // authenticators return a different value at create() than at get(), and
 // every future unlock uses get(). Callers obtain key material exclusively via
 // getPasskeyPrf, so a value baked in at setup is always reproducible at unlock.
+const PRF_UNSUPPORTED_MESSAGE =
+  'This authenticator completed sign-in but did not return a derivation secret ' +
+  '(the WebAuthn PRF / hmac-secret extension). Podkey needs PRF to derive your key. ' +
+  'Try a phone passkey or a modern security key that supports PRF, or create a ' +
+  'passphrase-based key instead.';
+
+// WebAuthn surfaces almost every ceremony failure as NotAllowedError — a
+// deliberately vague catch-all covering user cancel, timeout, no available
+// authenticator, and lost window focus. Name the likely causes (including the
+// two-prompt shape below) without over-claiming which one occurred; pass any
+// other error through unchanged.
+function translateCeremonyError (err) {
+  if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+    return new Error(
+      'The passkey step was cancelled, timed out, or could not be completed. ' +
+      'Podkey prompts twice — once to register the passkey, once to derive the key — ' +
+      'so confirm every prompt. If it keeps failing, try a phone passkey or a ' +
+      'different security key.'
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err?.message || err));
+}
+
 export async function createPasskey (prfSalt, label = 'Podkey identity') {
   if (!window.PublicKeyCredential || !navigator.credentials) {
     throw new Error('Passkeys are not supported by this browser');
   }
-  const credential = await navigator.credentials.create({ publicKey: {
-    challenge: randomBytes(32),
-    user: { id: randomBytes(32), name: 'podkey', displayName: label },
-    rp: { name: 'Podkey' },
-    pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-    authenticatorSelection: { residentKey: 'preferred', userVerification: 'required' },
-    timeout: 120000,
-    attestation: 'none',
-    extensions: { prf: { eval: { first: prfSalt } } }
-  } });
+  let credential;
+  try {
+    credential = await navigator.credentials.create({ publicKey: {
+      challenge: randomBytes(32),
+      user: { id: randomBytes(32), name: 'podkey', displayName: label },
+      rp: { name: 'Podkey' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+      // Podkey stores the credentialId itself and always passes it via
+      // allowCredentials at unlock, so it never needs a discoverable (resident)
+      // credential. Requesting one adds cost and, on some TPM/security-key
+      // authenticators (e.g. tpm-fido), a makeCredential failure path — so
+      // discourage it. hmac-secret/PRF works fine on non-resident credentials.
+      authenticatorSelection: { residentKey: 'discouraged', userVerification: 'required' },
+      timeout: 120000,
+      attestation: 'none',
+      extensions: { prf: { eval: { first: prfSalt } } }
+    } });
+  } catch (err) {
+    throw translateCeremonyError(err);
+  }
   if (!credential) throw new Error('Passkey creation was cancelled');
+  // Definitive PRF-support signal: with prf requested at creation, the client
+  // reports whether the authenticator provisioned hmac-secret. If it didn't,
+  // every unlock's get() would fail to return key material — so stop here with
+  // an actionable message instead of persisting a credential that can't unlock.
+  const prf = credential.getClientExtensionResults?.().prf;
+  if (!prf || prf.enabled !== true) {
+    throw new Error(PRF_UNSUPPORTED_MESSAGE);
+  }
   return { credentialId: toBase64Url(new Uint8Array(credential.rawId)) };
 }
 
 export async function getPasskeyPrf (credentialId, prfSalt) {
   const id = typeof credentialId === 'string' ? fromBase64Url(credentialId) : credentialId;
-  const assertion = await navigator.credentials.get({ publicKey: {
-    challenge: randomBytes(32),
-    allowCredentials: [{ type: 'public-key', id }],
-    userVerification: 'required',
-    timeout: 120000,
-    extensions: { prf: { eval: { first: prfSalt } } }
-  } });
+  let assertion;
+  try {
+    assertion = await navigator.credentials.get({ publicKey: {
+      challenge: randomBytes(32),
+      allowCredentials: [{ type: 'public-key', id }],
+      userVerification: 'required',
+      timeout: 120000,
+      extensions: { prf: { eval: { first: prfSalt } } }
+    } });
+  } catch (err) {
+    throw translateCeremonyError(err);
+  }
   const output = assertion?.getClientExtensionResults().prf?.results?.first;
-  if (!output) throw new Error('This passkey does not support secure key derivation (PRF)');
+  if (!output) throw new Error(PRF_UNSUPPORTED_MESSAGE);
   return new Uint8Array(output);
 }

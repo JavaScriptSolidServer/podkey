@@ -634,6 +634,10 @@ input:focus-visible + .slider {
   text-decoration: underline;
 }
 
+.footer a.danger {
+  color: var(--danger);
+}
+
 .footer .sep {
   margin: 0 6px;
   color: var(--text-faint);

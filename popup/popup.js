@@ -227,6 +227,10 @@ function setupEventListeners() {
   document.getElementById('autoSignToggle').addEventListener('change', handleAutoSignToggle);
   document.getElementById('exportBtn').addEventListener('click', handleExport);
   document.getElementById('lockBtn').addEventListener('click', handleLock);
+  // Same wipe-and-return-to-setup action as the unlock screen's link, surfaced
+  // on the main screen so an existing user can reset to the init state (and
+  // reach the passkey-derived creation flow) without locking first.
+  document.getElementById('resetKeyBtn').addEventListener('click', handleForgetKey);
   document.getElementById('enablePasskeyBtn').addEventListener('click', () => runPasskeyFlow('enable', handleEnablePasskeyUnlock));
 
   // Passkey backup screen
