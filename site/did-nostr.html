@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Podkey did:nostr Identity Specification</title>
+  <meta name="description" content="Specification for how Podkey creates, presents, and authenticates a did:nostr identity — the NIP-07 capability surface and the NIP-98 HTTP authentication profile used for Solid pods." />
+  <link rel="icon" href="icon.svg" />
+  <style>
+    :root{
+      --bg:#0b0e12; --surface:#141920; --surface-2:#1b2129; --border:#262e38;
+      --text:#e7eaee; --muted:#9aa4b0; --faint:#6b7480;
+      --accent:#f5a623; --accent-2:#fbbf24; --ring:rgba(245,166,35,.25);
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.65;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent)}
+    a:hover{color:var(--accent-2)}
+    .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+    header{padding:26px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px}
+    .brand svg{width:26px;height:26px;color:var(--accent)}
+    nav a{margin-left:18px;color:var(--muted);text-decoration:none;font-size:14px}
+    nav a:hover{color:var(--text)}
+    h1{font-size:34px;line-height:1.15;margin:34px 0 6px;letter-spacing:-.02em}
+    h2{font-size:22px;margin:42px 0 12px;padding-top:14px;border-top:1px solid var(--border)}
+    h3{font-size:17px;margin:26px 0 8px}
+    p,li{color:var(--text);font-size:15px}
+    .subtitle{color:var(--muted);margin:0 0 8px;font-size:16px}
+    .status{display:inline-block;margin:10px 0 4px;padding:4px 10px;border:1px solid var(--border);
+      border-radius:999px;background:var(--surface);color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+    .meta{color:var(--faint);font-size:13px;margin:6px 0 0}
+    code{font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border);
+      border-radius:5px;padding:1px 5px;color:var(--accent-2)}
+    pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:16px;overflow-x:auto;font-size:13px;line-height:1.55}
+    pre code{background:none;border:none;padding:0;color:var(--text)}
+    table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+    th,td{text-align:left;padding:8px 10px;border:1px solid var(--border);vertical-align:top}
+    th{background:var(--surface);color:var(--muted);font-weight:600}
+    .note,.warn{border:1px solid var(--border);border-left:3px solid var(--accent);
+      border-radius:8px;background:var(--surface);padding:12px 14px;margin:14px 0;font-size:14px}
+    .warn{border-left-color:#e5484d}
+    .rfc{font-variant:small-caps;font-weight:700}
+    footer{margin:56px 0 30px;padding-top:18px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+    ol li,ul li{margin:5px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="8" cy="15" r="4" />
+          <path d="M10.85 12.15 19 4" />
+          <path d="m18 5 2 2" />
+          <path d="m15 8 2 2" />
+        </svg>
+        Podkey
+      </div>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="passkey-identity.html">Passkey Spec</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/JavaScriptSolidServer/podkey">GitHub</a>
+      </nav>
+    </header>
+
+    <h1>Podkey did:nostr Identity Specification</h1>
+    <p class="subtitle">How Podkey creates, presents, and authenticates a did:nostr identity in the browser</p>
+    <span class="status">Draft — version 1</span>
+    <p class="meta">
+      This document is a work in progress and may be updated, replaced, or obsoleted at any time.
+      It profiles the <a href="https://nostrcg.github.io/did-nostr/">Nostr DID Method Specification</a>
+      for a browser-held identity, following that document's structure and conventions.
+      The key words <span class="rfc">must</span>, <span class="rfc">must not</span>,
+      <span class="rfc">should</span>, and <span class="rfc">may</span> are to be interpreted as in RFC&nbsp;2119.
+      Key custody mechanics (encrypted vaults, passkey unlock and derivation) are out of scope here and are
+      specified in the companion <a href="passkey-identity.html">Podkey Passkey Identity Specification</a>.
+    </p>
+
+    <h2 id="introduction">1. Introduction</h2>
+    <p>
+      <a href="https://nostrcg.github.io/did-nostr/">did:nostr</a> makes a Nostr public key a W3C decentralized
+      identifier: no registry, no blockchain, no identity provider — the key <em>is</em> the identity. What the
+      method specification leaves open is where that key lives and how it is exercised safely from a web page.
+    </p>
+    <p>
+      Podkey answers that as a Manifest V3 browser extension: it holds exactly one secp256k1 keypair per
+      profile, never releases the private key to any page, and exposes the identity through two narrow,
+      user-consented surfaces — the <a href="#nip07">NIP-07 capability object</a> for Nostr applications, and a
+      <a href="#nip98">NIP-98 HTTP authentication profile</a> for servers such as
+      <a href="https://solidproject.org">Solid</a> pods. This document specifies both surfaces and the identity
+      lifecycle around them, so that servers and applications can interoperate with a Podkey-held
+      <code>did:nostr</code> identity without depending on extension internals.
+    </p>
+
+    <h2 id="concepts">2. Core concepts</h2>
+    <h3>2.1 Identifier</h3>
+    <p>
+      The identity is a BIP-340 x-only secp256k1 public key, encoded as 64 lowercase hex characters, used
+      directly in the DID scheme of the method specification:
+    </p>
+    <pre><code>const pubkey = await window.nostr.getPublicKey()
+const did = `did:nostr:${pubkey}`
+// did:nostr:3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d</code></pre>
+    <p>
+      Implementations <span class="rfc">must</span> use the raw hex form in DIDs and protocol messages.
+      The bech32 forms (<code>npub…</code> for display, <code>nsec…</code> for private-key interchange per
+      NIP-19) are presentation formats only.
+    </p>
+
+    <h3>2.2 One identity, one key</h3>
+    <p>
+      Podkey manages a single active identity. Everything the extension emits — a signed event, an
+      authentication header, an encrypted payload — is attributable to that one <code>did:nostr</code>.
+      There is no key rotation within an identity: rotating means creating a new identity, as in the
+      method specification's update semantics.
+    </p>
+
+    <h3>2.3 Custody boundary</h3>
+    <p>
+      The private key exists in plaintext only inside extension memory for the duration of a browser session.
+      At rest it is encrypted on-device; unlocking uses a passphrase or a passkey (see the
+      <a href="passkey-identity.html">companion specification</a>). Web pages interact only with the
+      surfaces below; a page never receives, and cannot request, key material. Every response that crosses
+      the page boundary is a public key, a signed event, an encrypted/decrypted payload, or an
+      authentication header.
+    </p>
+
+    <h2 id="nip07">3. Presentation: the NIP-07 capability surface</h2>
+    <p>
+      Podkey injects a <a href="https://github.com/nostr-protocol/nips/blob/master/07.md">NIP-07</a>
+      <code>window.nostr</code> object into every page. The implemented surface:
+    </p>
+    <table>
+      <tr><th>Method</th><th>Behaviour</th></tr>
+      <tr><td><code>getPublicKey()</code></td><td>Returns the 64-hex public key after per-origin consent; consent establishes revocable origin trust.</td></tr>
+      <tr><td><code>signEvent(event)</code></td><td>Signs any event kind (BIP-340 Schnorr). Trusted origins sign without a prompt; untrusted origins always prompt.</td></tr>
+      <tr><td><code>nip44.encrypt(pubkey, plaintext)</code> / <code>nip44.decrypt(pubkey, ciphertext)</code></td><td>NIP-44 v2 payloads, gated by the same origin-trust model.</td></tr>
+    </table>
+    <p>
+      <code>getRelays()</code> is intentionally absent: Podkey holds no relay list, and a missing method is the
+      honest signal to capability-probing clients. Applications <span class="rfc">must</span> feature-detect
+      rather than assume the full NIP-07 surface.
+    </p>
+
+    <h2 id="nip98">4. Authentication: the NIP-98 HTTP profile</h2>
+    <p>
+      Podkey authenticates HTTP requests with
+      <a href="https://github.com/nostr-protocol/nips/blob/master/98.md">NIP-98</a>: a signed kind-27235 event
+      carried in the <code>Authorization</code> header. Podkey emits tokens with this exact shape:
+    </p>
+    <pre><code>{
+  "kind": 27235,
+  "created_at": &lt;unix seconds&gt;,
+  "tags": [
+    ["u", "&lt;exact request URL&gt;"],
+    ["method", "&lt;HTTP method&gt;"],
+    ["nonce", "&lt;16 random bytes, hex&gt;"],
+    ["payload", "&lt;sha256 of the request body, hex&gt;"]   // present iff the request has a body
+  ],
+  "content": "",
+  "pubkey": "&lt;64-hex&gt;",
+  "id": "…", "sig": "…"
+}
+
+Authorization: Nostr &lt;base64(JSON event)&gt;</code></pre>
+    <ul>
+      <li>The <code>nonce</code> tag supplements NIP-98's 1-second <code>created_at</code> resolution so
+          verifiers can reject replays exactly; verifiers <span class="rfc">should</span> enforce
+          single use per nonce within their freshness window.</li>
+      <li>The <code>payload</code> tag binds the request body: verifiers <span class="rfc">must</span>
+          reject a body-bearing request whose hash does not match.</li>
+      <li>Verifiers <span class="rfc">must</span> check the <code>u</code> and <code>method</code> tags
+          against the actual request, verify the Schnorr signature, and then treat
+          <code>did:nostr:&lt;pubkey&gt;</code> as the authenticated identity.</li>
+    </ul>
+    <p>
+      This is how a Podkey identity authenticates to Solid pods with no OAuth redirect and no identity-provider
+      account: the pod verifies the token and resolves the DID per the method specification. Automatic
+      (promptless) NIP-98 signing is opt-in and restricted to exactly-matching trusted hosts; by default every
+      authentication is user-approved.
+    </p>
+
+    <h2 id="operations">5. Operations</h2>
+    <h3>5.1 Create</h3>
+    <p>
+      Generate a fresh secp256k1 keypair inside the extension, or import an existing key
+      (64-hex or <code>nsec</code>, normalised at the import boundary). The DID is
+      <code>did:nostr:&lt;pubkey&gt;</code> from the moment the key exists — no registration step, per the
+      method specification.
+    </p>
+    <h3>5.2 Read (resolve)</h3>
+    <p>
+      Podkey does not resolve DIDs; it is the subject, not a resolver. Consumers resolve a Podkey-presented DID
+      exactly as the method specification describes — minimal resolution derives a valid DID document from the
+      public key alone, offline, which is sufficient to verify anything Podkey signs.
+    </p>
+    <h3>5.3 Update / Deactivate</h3>
+    <p>
+      Not applicable at the extension layer. Podkey publishes no events on its own; profile data (kind 0),
+      relay lists, and social graph are the domain of Nostr applications the user signs into via NIP-07.
+      Abandoning an identity is done by forgetting the key (after backup) and creating a new one.
+    </p>
+    <h3>5.4 Backup and restore</h3>
+    <p>
+      The identity survives as an exported private key (<code>nsec</code> or hex). Restoring it into any
+      NIP-07 signer — Podkey or another — restores the same <code>did:nostr</code>. This portability is a
+      property of the key itself and is the canonical way an identity moves between devices and
+      implementations.
+    </p>
+
+    <h2 id="security">6. Security considerations</h2>
+    <ul>
+      <li><strong>Key confinement.</strong> The private key <span class="rfc">must not</span> cross the page
+          boundary in any form; all signing happens inside the extension context.</li>
+      <li><strong>Origin trust.</strong> Consent is per-origin and revocable; a trusted origin gains promptless
+          signing, so trust grants <span class="rfc">should</span> be treated by users as the security
+          decision they are. Lookalike hosts are not matched — trust is exact.</li>
+      <li><strong>Replay and binding.</strong> Verifiers rely on the nonce, URL, method, and payload-hash tags
+          (§4); accepting a token without checking all of them voids those guarantees.</li>
+      <li><strong>Single-key blast radius.</strong> One key signs for every consuming application. Users who
+          need compartmentalised identities <span class="rfc">should</span> use separate browser profiles,
+          each with its own Podkey identity.</li>
+      <li>Key-custody threat model (vault encryption, unlock, loss and recovery) is specified in the
+          <a href="passkey-identity.html">companion specification</a>.</li>
+    </ul>
+
+    <h2 id="privacy">7. Privacy considerations</h2>
+    <ul>
+      <li>A <code>did:nostr</code> is a stable global identifier by design; every origin the user consents to
+          learns the same pubkey and can correlate on it. This inherits the method specification's
+          correlation caveats.</li>
+      <li>Podkey itself makes no network requests and emits nothing without a page asking; disclosure is
+          always the result of a user-approved capability call.</li>
+      <li>NIP-98 tokens contain the exact URL being authenticated; servers holding logs of them hold a
+          signed browsing trace for that origin. Verifiers <span class="rfc">should</span> retain tokens no
+          longer than replay-checking requires.</li>
+    </ul>
+
+    <h2 id="implementations">8. Implementations</h2>
+    <ul>
+      <li><strong><a href="https://github.com/JavaScriptSolidServer/podkey">Podkey</a></strong> — this
+          specification's reference implementation (subject side).</li>
+      <li><strong><a href="https://github.com/JavaScriptSolidServer">JavaScriptSolidServer</a></strong> —
+          Solid pod server verifying the §4 profile and resolving <code>did:nostr</code> per the method
+          specification (verifier side).</li>
+      <li>Any NIP-07 client and any NIP-98 verifier interoperate with the respective surface without
+          Podkey-specific code.</li>
+    </ul>
+
+    <h2 id="resources">9. Resources</h2>
+    <ul>
+      <li><a href="https://nostrcg.github.io/did-nostr/">Nostr DID Method Specification</a></li>
+      <li><a href="passkey-identity.html">Podkey Passkey Identity Specification</a> (companion: key custody)</li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/07.md">NIP-07 — window.nostr capability</a></li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/98.md">NIP-98 — HTTP Auth</a></li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/44.md">NIP-44 — encrypted payloads</a></li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/19.md">NIP-19 — bech32-encoded entities</a></li>
+      <li><a href="https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki">BIP-340 — Schnorr signatures for secp256k1</a></li>
+      <li><a href="https://solidproject.org">Solid Project</a></li>
+    </ul>
+
+    <footer>
+      Podkey did:nostr Identity Specification, draft v1 · <a href="https://github.com/JavaScriptSolidServer/podkey">github.com/JavaScriptSolidServer/podkey</a>
+    </footer>
+  </div>
+</body>
+</html>

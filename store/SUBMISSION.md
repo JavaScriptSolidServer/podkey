@@ -17,7 +17,7 @@ version 0.0.8.
 The uploadable ZIP is produced by the build, with test files excluded:
 
 ```bash
-npm run build                       # bundles deps into src/background.bundle.js
+npm run build                       # bundles the background worker and popup
 zip -r podkey-extension.zip manifest.json src popup icons -x '*.test.js'
 ```
 

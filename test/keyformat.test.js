@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nsecToHex, normalizeSecretKeyToHex } from '../src/keyformat.js';
+import { hexToNsec, nsecToHex, normalizeSecretKeyToHex } from '../src/keyformat.js';
 
 // Canonical NIP-19 spec test vector.
 const NSEC = 'nsec1vl029mgpspedva04g90vltkh6fvh240zqtv9k0t9af8935ke9laqsnlfe5';
@@ -53,4 +53,19 @@ test('rejects short hex, long hex, and non-hex junk', () => {
 test('rejects non-string input', () => {
   assert.throws(() => normalizeSecretKeyToHex(null), /Invalid key/);
   assert.throws(() => normalizeSecretKeyToHex(undefined), /Invalid key/);
+});
+
+test('hexToNsec encodes the NIP-19 spec vector', () => {
+  assert.equal(hexToNsec(HEX), NSEC);
+});
+
+test('hexToNsec accepts uppercase hex and round-trips through nsecToHex', () => {
+  assert.equal(nsecToHex(hexToNsec(HEX.toUpperCase())), HEX);
+});
+
+test('hexToNsec rejects non-hex and wrong-length input', () => {
+  assert.throws(() => hexToNsec(HEX.slice(0, 63)), /Invalid key/);
+  assert.throws(() => hexToNsec(HEX + '00'), /Invalid key/);
+  assert.throws(() => hexToNsec('zz' + HEX.slice(2)), /Invalid key/);
+  assert.throws(() => hexToNsec(null), /Invalid key/);
 });

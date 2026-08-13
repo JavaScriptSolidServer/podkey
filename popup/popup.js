@@ -1,6 +1,18 @@
 /**
  * Podkey - Popup UI Logic
  */
+import {
+  PASSKEY_CONFIG_KEY,
+  createPasskey,
+  deriveNostrKey,
+  fromBase64Url,
+  getPasskeyPrf,
+  newPasskeySalt,
+  toBase64Url,
+  unwrapPrivateKey,
+  wrapPrivateKey
+} from '../src/passkey.js';
+import { hexToNsec } from '../src/keyformat.js';
 
 // Set DEBUG=true to log identity material (public key / DID) for local
 // debugging. Off by default so the popup never prints the user's pubkey.
@@ -9,13 +21,52 @@ const DEBUG = false;
 // UI State
 let currentScreen = 'setup';
 
+// A derived identity waiting on the backup acknowledgment. Nothing is
+// persisted until the user confirms the backup, so abandoning this screen
+// (cancel or closing the window) leaves no partial state anywhere.
+let pendingDerivedIdentity = null;
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[Podkey Popup] DOMContentLoaded fired');
   await checkKeypairStatus();
   setupEventListeners();
   console.log('[Podkey Popup] Initialization complete');
+
+  // When relaunched as a dedicated passkey window (?flow=…), start the
+  // requested ceremony immediately — see runPasskeyFlow.
+  const flow = new URLSearchParams(location.search).get('flow');
+  if (flow === 'create') handleCreatePasskeyIdentity();
+  else if (flow === 'enable') handleEnablePasskeyUnlock();
+  else if (flow === 'unlock') handlePasskeyUnlock();
 });
+
+/**
+ * Run a WebAuthn ceremony in a context that survives losing focus. The
+ * toolbar action popup is destroyed on blur — and the platform authenticator
+ * UI takes focus — so a ceremony started there can be killed mid-flight.
+ * A chrome.windows.create popup (like the background's unlock window) is not,
+ * so when invoked from the action popup we relaunch this page into one and
+ * let ?flow= restart the ceremony there.
+ */
+async function runPasskeyFlow(flow, handler) {
+  let inOwnWindow = false;
+  try {
+    inOwnWindow = (await chrome.windows.getCurrent()).type === 'popup';
+  } catch { /* fall through: treat as action popup and relaunch */ }
+  if (inOwnWindow) {
+    await handler();
+    return;
+  }
+  await chrome.windows.create({
+    url: chrome.runtime.getURL(`popup/popup.html?flow=${flow}`),
+    type: 'popup',
+    width: 400,
+    height: 560,
+    focused: true
+  });
+  window.close();
+}
 
 /**
  * Check if keypair exists and show appropriate screen
@@ -55,6 +106,11 @@ function showSetupScreen() {
   console.log('[Podkey Popup] Setup screen display set to block');
 }
 
+async function getPasskeyConfig() {
+  const { [PASSKEY_CONFIG_KEY]: config } = await chrome.storage.local.get([PASSKEY_CONFIG_KEY]);
+  return config || null;
+}
+
 /**
  * Show generate screen (set an encryption passphrase for a new key)
  */
@@ -79,7 +135,16 @@ function showUnlockScreen(status) {
   document.getElementById('unlockPassphrase').value = '';
   document.getElementById('unlockScreen').style.display = 'block';
   currentScreen = 'unlock';
-  document.getElementById('unlockPassphrase').focus();
+  getPasskeyConfig().then(config => {
+    const passkeyBtn = document.getElementById('passkeyUnlockBtn');
+    const hasPasskey = !!config;
+    passkeyBtn.hidden = !hasPasskey;
+    document.getElementById('unlockDivider').hidden = !hasPasskey || config.mode === 'derived';
+    document.querySelector('label[for="unlockPassphrase"]').hidden = config?.mode === 'derived';
+    document.getElementById('unlockPassphrase').hidden = config?.mode === 'derived';
+    document.getElementById('unlockBtn').hidden = config?.mode === 'derived';
+    if (!hasPasskey) document.getElementById('unlockPassphrase').focus();
+  });
 }
 
 /**
@@ -110,6 +175,16 @@ async function showMainScreen(status) {
   // which keeps silent trusted-origin Solid / NIP-98 signing strictly opt-in).
   const { podkey_auto_sign: autoSign = false } = await chrome.storage.local.get(['podkey_auto_sign']);
   document.getElementById('autoSignToggle').checked = autoSign;
+
+  const config = await getPasskeyConfig();
+  const passkeyBtn = document.getElementById('enablePasskeyBtn');
+  passkeyBtn.hidden = config?.mode === 'derived';
+  passkeyBtn.textContent = config ? 'Replace' : 'Set up';
+  document.getElementById('passkeySettingDesc').textContent = config?.mode === 'derived'
+    ? 'This identity is derived from your passkey.'
+    : config
+      ? 'Enabled. Your passphrase remains available for recovery.'
+      : 'Use biometrics or a security key instead of typing your passphrase.';
 }
 
 /**
@@ -129,6 +204,7 @@ function setupEventListeners() {
   // Setup screen
   document.getElementById('generateBtn').addEventListener('click', () => showGenerateScreen());
   document.getElementById('importBtn').addEventListener('click', () => showImportScreen());
+  document.getElementById('passkeyDerivedBtn').addEventListener('click', () => runPasskeyFlow('create', handleCreatePasskeyIdentity));
 
   // Generate screen
   document.getElementById('generateConfirmBtn').addEventListener('click', handleGenerate);
@@ -136,6 +212,7 @@ function setupEventListeners() {
 
   // Unlock screen
   document.getElementById('unlockBtn').addEventListener('click', handleUnlock);
+  document.getElementById('passkeyUnlockBtn').addEventListener('click', () => runPasskeyFlow('unlock', handlePasskeyUnlock));
   document.getElementById('unlockPassphrase').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') handleUnlock();
   });
@@ -150,6 +227,153 @@ function setupEventListeners() {
   document.getElementById('autoSignToggle').addEventListener('change', handleAutoSignToggle);
   document.getElementById('exportBtn').addEventListener('click', handleExport);
   document.getElementById('lockBtn').addEventListener('click', handleLock);
+  document.getElementById('enablePasskeyBtn').addEventListener('click', () => runPasskeyFlow('enable', handleEnablePasskeyUnlock));
+
+  // Passkey backup screen
+  document.getElementById('backupAckCheck').addEventListener('change', (e) => {
+    document.getElementById('backupFinishBtn').disabled = !e.target.checked;
+  });
+  document.getElementById('backupCopyBtn').addEventListener('click', handleBackupCopy);
+  document.getElementById('backupFinishBtn').addEventListener('click', handleBackupFinish);
+  document.getElementById('backupCancelBtn').addEventListener('click', () => {
+    pendingDerivedIdentity = null;
+    showSetupScreen();
+  });
+}
+
+async function registerPrfPasskey(label) {
+  const prfSalt = newPasskeySalt();
+  const { credentialId } = await createPasskey(prfSalt, label);
+  // Key material comes from a get() assertion — the operation every future
+  // unlock performs — so what we derive or wrap now is exactly what the
+  // passkey will reproduce later. (Second prompt is the cost of that proof.)
+  const prfOutput = await getPasskeyPrf(credentialId, prfSalt);
+  return { credentialId, prfOutput, prfSalt };
+}
+
+async function handleCreatePasskeyIdentity() {
+  const confirmed = confirm(
+    'This advanced mode derives your identity from a passkey. If the passkey is lost or unavailable, the identity cannot be recovered without the private-key backup you will be shown next.\n\nContinue?'
+  );
+  if (!confirmed) return;
+  const btn = document.getElementById('passkeyDerivedBtn');
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Creating passkey…';
+    const { credentialId, prfOutput, prfSalt } = await registerPrfPasskey('Podkey Nostr identity');
+    const derivationSalt = newPasskeySalt();
+    const privateKey = await deriveNostrKey(prfOutput, derivationSalt);
+    // Persist nothing yet: the identity only comes into existence once the
+    // user has acknowledged the backup on the next screen.
+    pendingDerivedIdentity = {
+      privateKey,
+      config: {
+        v: 1, mode: 'derived', credentialId,
+        prfSalt: toBase64Url(prfSalt), derivationSalt: toBase64Url(derivationSalt)
+      }
+    };
+    showBackupScreen(privateKey);
+  } catch (error) {
+    alert(error.message || 'Could not create a passkey identity.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create identity from a passkey';
+  }
+}
+
+/**
+ * Show the backup-acknowledgment gate for a freshly derived identity.
+ */
+function showBackupScreen(privateKey) {
+  hideAllScreens();
+  document.getElementById('backupNsec').textContent = hexToNsec(privateKey);
+  document.getElementById('backupAckCheck').checked = false;
+  document.getElementById('backupFinishBtn').disabled = true;
+  document.getElementById('passkeyBackupScreen').style.display = 'block';
+  currentScreen = 'passkeyBackup';
+}
+
+async function handleBackupCopy() {
+  if (!pendingDerivedIdentity) return;
+  try {
+    await navigator.clipboard.writeText(hexToNsec(pendingDerivedIdentity.privateKey));
+    const label = document.querySelector('#backupCopyBtn .btn-copy-label');
+    const original = label.textContent;
+    label.textContent = 'Copied';
+    setTimeout(() => { label.textContent = original; }, 2000);
+  } catch (error) {
+    alert('Failed to copy: ' + error.message);
+  }
+}
+
+async function handleBackupFinish() {
+  if (!pendingDerivedIdentity) return;
+  const btn = document.getElementById('backupFinishBtn');
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+    // Config before key: if this is interrupted after the config write, the
+    // status handler reports a locked passkey identity and the next passkey
+    // unlock re-derives and stores the key — whereas key-before-config left
+    // an orphaned public key and no way back to this identity.
+    await chrome.storage.local.set({ [PASSKEY_CONFIG_KEY]: pendingDerivedIdentity.config });
+    const response = await chrome.runtime.sendMessage({
+      type: 'SET_SESSION_KEY', privateKey: pendingDerivedIdentity.privateKey
+    });
+    if (response?.error) {
+      await chrome.storage.local.remove([PASSKEY_CONFIG_KEY]);
+      throw new Error(response.error);
+    }
+    pendingDerivedIdentity = null;
+    await showMainScreen(response);
+  } catch (error) {
+    alert(error.message || 'Could not create a passkey identity.');
+    btn.disabled = !document.getElementById('backupAckCheck').checked;
+  } finally {
+    btn.textContent = 'Create identity';
+  }
+}
+
+async function handleEnablePasskeyUnlock() {
+  const btn = document.getElementById('enablePasskeyBtn');
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Waiting…';
+    const { podkey_private_key: privateKey } = await chrome.storage.session.get(['podkey_private_key']);
+    if (!privateKey) throw new Error('Unlock Podkey before setting up passkey unlock');
+    const { credentialId, prfOutput, prfSalt } = await registerPrfPasskey('Podkey unlock');
+    const wrapped = await wrapPrivateKey(privateKey, prfOutput);
+    await chrome.storage.local.set({ [PASSKEY_CONFIG_KEY]: {
+      v: 1, mode: 'wrapped', credentialId, prfSalt: toBase64Url(prfSalt), wrapped
+    } });
+    await showMainScreen(await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' }));
+  } catch (error) {
+    alert(error.message || 'Could not enable passkey unlock.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function handlePasskeyUnlock() {
+  const btn = document.getElementById('passkeyUnlockBtn');
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Waiting for passkey…';
+    const config = await getPasskeyConfig();
+    if (!config) throw new Error('No passkey is configured');
+    const prfOutput = await getPasskeyPrf(config.credentialId, fromBase64Url(config.prfSalt));
+    const privateKey = config.mode === 'derived'
+      ? await deriveNostrKey(prfOutput, fromBase64Url(config.derivationSalt))
+      : await unwrapPrivateKey(config.wrapped, prfOutput);
+    const response = await chrome.runtime.sendMessage({ type: 'SET_SESSION_KEY', privateKey });
+    if (response?.error) throw new Error(response.error);
+    await showMainScreen(response);
+  } catch (error) {
+    alert(error.message || 'Passkey unlock failed.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Unlock with passkey';
+  }
 }
 
 /**
@@ -256,7 +480,7 @@ async function handleForgetKey(event) {
   if (!confirmed) return;
 
   await chrome.storage.session.remove(['podkey_private_key']);
-  await chrome.storage.local.remove(['podkey_vault', 'podkey_public_key']);
+  await chrome.storage.local.remove(['podkey_vault', 'podkey_public_key', PASSKEY_CONFIG_KEY]);
   showSetupScreen();
 }
 

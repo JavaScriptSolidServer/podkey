@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Podkey Passkey Identity Specification</title>
+  <meta name="description" content="Specification for deriving and protecting a Nostr / did:nostr identity with a FIDO2 passkey via the WebAuthn PRF extension — the normative key-derivation contract implemented by Podkey." />
+  <link rel="icon" href="icon.svg" />
+  <style>
+    :root{
+      --bg:#0b0e12; --surface:#141920; --surface-2:#1b2129; --border:#262e38;
+      --text:#e7eaee; --muted:#9aa4b0; --faint:#6b7480;
+      --accent:#f5a623; --accent-2:#fbbf24; --ring:rgba(245,166,35,.25);
+      --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+      line-height:1.65;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent)}
+    a:hover{color:var(--accent-2)}
+    .wrap{max-width:880px;margin:0 auto;padding:0 22px}
+    header{padding:26px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:11px;font-weight:700;font-size:19px}
+    .brand svg{width:26px;height:26px;color:var(--accent)}
+    nav a{margin-left:18px;color:var(--muted);text-decoration:none;font-size:14px}
+    nav a:hover{color:var(--text)}
+    h1{font-size:34px;line-height:1.15;margin:34px 0 6px;letter-spacing:-.02em}
+    h2{font-size:22px;margin:42px 0 12px;padding-top:14px;border-top:1px solid var(--border)}
+    h3{font-size:17px;margin:26px 0 8px}
+    p,li{color:var(--text);font-size:15px}
+    .subtitle{color:var(--muted);margin:0 0 8px;font-size:16px}
+    .status{display:inline-block;margin:10px 0 4px;padding:4px 10px;border:1px solid var(--border);
+      border-radius:999px;background:var(--surface);color:var(--muted);font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+    .meta{color:var(--faint);font-size:13px;margin:6px 0 0}
+    code{font-family:var(--mono);font-size:13px;background:var(--surface);border:1px solid var(--border);
+      border-radius:5px;padding:1px 5px;color:var(--accent-2)}
+    pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+      padding:16px;overflow-x:auto;font-size:13px;line-height:1.55}
+    pre code{background:none;border:none;padding:0;color:var(--text)}
+    table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+    th,td{text-align:left;padding:8px 10px;border:1px solid var(--border);vertical-align:top}
+    th{background:var(--surface);color:var(--muted);font-weight:600}
+    .note,.warn{border:1px solid var(--border);border-left:3px solid var(--accent);
+      border-radius:8px;background:var(--surface);padding:12px 14px;margin:14px 0;font-size:14px}
+    .warn{border-left-color:#e5484d}
+    .rfc{font-variant:small-caps;font-weight:700}
+    footer{margin:56px 0 30px;padding-top:18px;border-top:1px solid var(--border);color:var(--faint);font-size:13px}
+    ol li,ul li{margin:5px 0}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="8" cy="15" r="4" />
+          <path d="M10.85 12.15 19 4" />
+          <path d="m18 5 2 2" />
+          <path d="m15 8 2 2" />
+        </svg>
+        Podkey
+      </div>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="did-nostr.html">DID Spec</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/JavaScriptSolidServer/podkey">GitHub</a>
+      </nav>
+    </header>
+
+    <h1>Podkey Passkey Identity Specification</h1>
+    <p class="subtitle">Deriving and protecting a Nostr / did:nostr identity with a FIDO2 passkey via the WebAuthn PRF extension</p>
+    <span class="status">Draft — version 1</span>
+    <p class="meta">
+      This document is a work in progress and may be updated, replaced, or obsoleted at any time.
+      It follows the structural conventions of the
+      <a href="https://nostrcg.github.io/did-nostr/">Nostr DID Method Specification</a>, which defines
+      the <code>did:nostr</code> identifiers this specification produces keys for.
+      The key words <span class="rfc">must</span>, <span class="rfc">must not</span>,
+      <span class="rfc">should</span>, and <span class="rfc">may</span> are to be interpreted as in RFC&nbsp;2119.
+    </p>
+
+    <h2 id="introduction">1. Introduction</h2>
+    <p>
+      A Nostr identity is a secp256k1 keypair; its 64-character lowercase hex x-only public key is also a
+      <code>did:nostr</code> decentralized identifier. Managing the private half of that keypair is the entire
+      user-facing problem: passphrases are forgettable and phishable, and pasted <code>nsec</code> strings leak.
+    </p>
+    <p>
+      FIDO2 passkeys solve custody but cannot sign Nostr events — WebAuthn authenticators do not produce
+      BIP-340 Schnorr signatures. The bridge is the
+      <a href="https://w3c.github.io/webauthn/#prf-extension">WebAuthn PRF extension</a>: a per-credential
+      pseudo-random function whose 32-byte output is only released after user verification. This specification
+      defines how that PRF output is turned into — or used to protect — a Nostr secret key, deterministically,
+      so that any conforming implementation holding <em>the same credential and the same salts</em> derives
+      the same identity.
+    </p>
+    <div class="warn">
+      <strong>Scope of the contract.</strong> WebAuthn credentials are scoped to the relying party that created
+      them, and PRF outputs are per-credential (<a href="#webauthn">§5</a>). Two applications with different
+      relying-party identifiers therefore <em>cannot</em> re-derive one identity from "the same passkey" — this
+      specification does not make identities portable across origins. An identity moves between applications as
+      a NIP-07 signing capability (the extension signs on the site's behalf) or as an exported backup
+      (<a href="#operations">§6.4</a>), never by passkey re-derivation.
+    </div>
+    <p>
+      Podkey (a Manifest V3 browser extension) is the primary implementation. Other clients
+      (for example, forum software offering extension-less login) <span class="rfc">must</span> implement the
+      derivation in <a href="#derivation">§3</a> byte-for-byte to be <em>construction-compatible</em>: identical
+      config schema, identical audited derivation, validated against the shared test vectors in
+      <a href="#vectors">§3.1</a>. Identities such clients create are scoped to their own relying party.
+    </p>
+
+    <h2 id="concepts">2. Core concepts</h2>
+    <h3>2.1 Modes</h3>
+    <p>This specification defines two mutually exclusive modes:</p>
+    <table>
+      <tr><th>Mode</th><th>Root of trust</th><th>Definition</th></tr>
+      <tr>
+        <td><code>derived</code></td>
+        <td>The passkey</td>
+        <td>The Nostr secret key is a pure function of the PRF output and two stored salts (<a href="#derivation">§3</a>).
+            The same passkey and salts always recreate the same identity; nothing secret is stored.</td>
+      </tr>
+      <tr>
+        <td><code>wrapped</code></td>
+        <td>An existing key</td>
+        <td>A pre-existing Nostr secret key is encrypted (AES-256-GCM) under a key derived from the PRF output
+            (<a href="#wrapping">§4</a>). The passkey becomes an unlock method; other recovery paths
+            (e.g. a passphrase vault) remain valid.</td>
+      </tr>
+    </table>
+
+    <h3>2.2 Salts</h3>
+    <ul>
+      <li><strong>PRF salt</strong> (<code>prfSalt</code>) — 32 random bytes, generated client-side at credential
+        creation, passed as <code>prf.eval.first</code> in every WebAuthn ceremony. Selects the PRF input.</li>
+      <li><strong>Derivation salt</strong> (<code>derivationSalt</code>, derived mode only) — 32 random bytes,
+        generated client-side, used as the HKDF salt.</li>
+    </ul>
+    <div class="note">
+      Salts are <em>not secrets</em> — the PRF output never leaves the authenticator boundary unverified, and
+      HKDF's security does not rest on salt secrecy. Salts are, however, <strong>availability-critical</strong>
+      in derived mode: without them, even the surviving passkey cannot recreate the identity. Implementations
+      <span class="rfc">must</span> store them durably and <span class="rfc">must not</span> treat their
+      disclosure as key compromise. All implementations <span class="rfc">must</span> generate salts client-side;
+      a server <span class="rfc">must not</span> mint or own them.
+    </div>
+
+    <h3>2.3 Configuration record</h3>
+    <p>
+      Implementations persist one versioned record per identity. All binary fields are encoded as
+      base64url <em>without padding</em> (RFC 4648 §5).
+    </p>
+    <pre><code>// mode "derived"
+{
+  "v": 1,
+  "mode": "derived",
+  "credentialId": "&lt;base64url credential rawId&gt;",
+  "prfSalt": "&lt;base64url 32 bytes&gt;",
+  "derivationSalt": "&lt;base64url 32 bytes&gt;"
+}
+
+// mode "wrapped"
+{
+  "v": 1,
+  "mode": "wrapped",
+  "credentialId": "&lt;base64url credential rawId&gt;",
+  "prfSalt": "&lt;base64url 32 bytes&gt;",
+  "wrapped": {
+    "salt": "&lt;base64url 32 bytes&gt;",   // HKDF salt for the wrapping key
+    "iv":   "&lt;base64url 12 bytes&gt;",   // AES-GCM nonce
+    "ct":   "&lt;base64url ciphertext + 16-byte tag&gt;"
+  }
+}</code></pre>
+
+    <h2 id="derivation">3. Key derivation (mode <code>derived</code>) — normative</h2>
+    <p>Given the 32-byte PRF output <code>prf</code> and the 32-byte <code>derivationSalt</code>:</p>
+    <ol>
+      <li>Set <code>counter = 0</code>.</li>
+      <li>Compute <code>info = "podkey/nostr-secret/v1" || byte(counter)</code>
+          (the 22 ASCII bytes of the label followed by one counter byte).</li>
+      <li>Compute <code>candidate = HKDF-SHA-256(ikm = prf, salt = derivationSalt, info = info, length = 32)</code>.</li>
+      <li>If <code>candidate</code>, read as a big-endian integer, is a valid secp256k1 secret scalar
+          (nonzero and less than the group order <em>n</em>), it is the Nostr secret key. Stop.</li>
+      <li>Otherwise increment <code>counter</code> and repeat from step&nbsp;2.
+          Implementations <span class="rfc">must</span> bound the loop (256 iterations) and fail if exhausted.</li>
+    </ol>
+    <p>
+      The counter loop makes derivation total <em>and</em> deterministic: the probability that
+      <code>counter = 0</code> is invalid is ≈ 2<sup>−128</sup>, but when it happens every conforming
+      implementation advances identically, so all derive the same key. The public key is the BIP-340
+      x-only form, and <code>did:nostr:&lt;pubkey-hex&gt;</code> is the corresponding DID.
+    </p>
+
+    <h3 id="vectors">3.1 Test vector</h3>
+    <p>Implementations <span class="rfc">must</span> reproduce this vector exactly.</p>
+    <pre><code>prf            = 0707070707070707070707070707070707070707070707070707070707070707
+derivationSalt = 0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
+secret key     = 35b9688c42b950406cd91257e11a2f8a76c61ef7b59dcdbe85250e06896582b9
+public key     = a71f3a2f075fdfe99d801dc0658a4bcf2acf8fdf832be28ee2c64dada773eda8
+did            = did:nostr:a71f3a2f075fdfe99d801dc0658a4bcf2acf8fdf832be28ee2c64dada773eda8
+nsec           = nsec1xkuk3rzzh9gyqmxezft7zx303fmvv8hhkkwum059y58qdzt9s2usyx2avn</code></pre>
+
+    <h2 id="wrapping">4. Key wrapping (mode <code>wrapped</code>) — normative</h2>
+    <p>To wrap an existing 32-byte Nostr secret key under the PRF output <code>prf</code>:</p>
+    <ol>
+      <li>Generate a fresh random 32-byte <code>salt</code> and 12-byte <code>iv</code>
+          for every wrap operation.</li>
+      <li>Compute <code>wrapKey = HKDF-SHA-256(ikm = prf, salt = salt, info = "podkey/wrap/v1", length = 32)</code>.</li>
+      <li>Compute <code>ct = AES-256-GCM(key = wrapKey, nonce = iv, plaintext = secretKeyBytes)</code>
+          with the default 128-bit tag.</li>
+      <li>Persist <code>{salt, iv, ct}</code> in the configuration record.</li>
+    </ol>
+    <p>
+      Unwrapping reverses the process; any authentication failure <span class="rfc">must</span> be reported
+      as a generic unlock failure without distinguishing wrong-passkey from tampered-ciphertext.
+    </p>
+    <div class="note">
+      The derive path (§3) and wrap path (§4) use distinct HKDF <code>info</code> strings
+      (<code>podkey/nostr-secret/v1</code> vs <code>podkey/wrap/v1</code>), so the two constructions can never
+      yield the same bytes from the same inputs. Wrap-key check vector:
+      <code>HKDF-SHA-256(prf, salt, "podkey/wrap/v1")</code> with <code>prf</code> and <code>salt</code> as in
+      §3.1 = <code>20066d41137e1e47957febffb8ba84259e9dc6ba232803e55e70d93a7d15c892</code>.
+    </div>
+
+    <h2 id="webauthn">5. WebAuthn ceremony parameters — normative</h2>
+    <table>
+      <tr><th>Parameter</th><th>Value</th><th>Requirement</th></tr>
+      <tr><td><code>pubKeyCredParams</code></td><td>ES256 (<code>alg: -7</code>)</td><td><span class="rfc">should</span> (the credential's own algorithm does not affect derivation; PRF support does)</td></tr>
+      <tr><td><code>userVerification</code></td><td><code>required</code></td><td><span class="rfc">must</span> — the PRF output gates the identity</td></tr>
+      <tr><td><code>residentKey</code></td><td><code>preferred</code></td><td><span class="rfc">should</span></td></tr>
+      <tr><td><code>attestation</code></td><td><code>none</code></td><td><span class="rfc">should</span> — attestation adds nothing here</td></tr>
+      <tr><td><code>extensions.prf.eval.first</code></td><td>the stored <code>prfSalt</code></td><td><span class="rfc">must</span>, on both create and get</td></tr>
+    </table>
+    <p>
+      Key material <span class="rfc">must</span> be obtained from an assertion-time PRF evaluation
+      (<code>navigator.credentials.get()</code> with <code>allowCredentials = [credentialId]</code>) — the same
+      operation every future unlock performs. A creation-time PRF output <span class="rfc">must not</span> be
+      used for key material: some authenticators return a different value at creation than at assertion, which
+      would bake in an identity the passkey can never reproduce. Implementations
+      <span class="rfc">must</span> fail cleanly when the authenticator does not support PRF at all.
+    </p>
+    <div class="warn">
+      Credentials are scoped to the relying-party identifier of the creating context, and the PRF is keyed
+      per-credential — not per passkey account. For a browser extension the relying party is the extension
+      origin, so the extension ID is effectively part of the identity: a credential created under one install
+      path (e.g. unpacked development) cannot be resolved under another (e.g. a store build) unless the ID is
+      pinned via a manifest <code>key</code>. Web implementations are similarly bound to their domain.
+      Consequently the passkey-plus-salts recovery path (<a href="#operations">§6.4</a>) only works within the
+      relying-party scope that created the credential; recovery across an origin or extension-ID change
+      <span class="rfc">must</span> go through the exported backup. Cross-device "hybrid" transports may
+      evaluate the PRF differently per device; implementations <span class="rfc">should</span> treat a PRF
+      output that fails to reproduce the expected identity as a wrong-authenticator condition, not corruption.
+    </div>
+
+    <h2 id="operations">6. Operations</h2>
+    <h3>6.1 Create (derived identity)</h3>
+    <ol>
+      <li>Generate <code>prfSalt</code> (32 random bytes); create the credential with the parameters in §5.</li>
+      <li>Obtain the PRF output via an assertion on the new credential (§5 — never from the creation result).</li>
+      <li>Generate <code>derivationSalt</code>; derive the secret key per §3.</li>
+      <li><strong>Backup gate:</strong> present the secret key (as <code>nsec</code>) and require explicit user
+          acknowledgment that it has been stored, <em>before</em> persisting anything. If the flow is abandoned
+          here, no state may remain.</li>
+      <li>Persist the configuration record, then activate the key for the session.</li>
+    </ol>
+    <h3>6.2 Unlock (re-derive / unwrap)</h3>
+    <ol>
+      <li>Load the configuration record; run an assertion with <code>allowCredentials = [credentialId]</code>
+          and <code>prf.eval.first = prfSalt</code>.</li>
+      <li>Derived mode: recompute the key per §3. Wrapped mode: unwrap per §4.</li>
+      <li>Verify the resulting public key equals the stored identity; reject with a
+          "different identity" error on mismatch.</li>
+    </ol>
+    <h3>6.3 Enable passkey unlock for an existing key (wrapped)</h3>
+    <p>Requires the identity to be unlocked; then §6.1 steps 1–2 followed by §4. Existing recovery
+       methods (e.g. passphrase vault) <span class="rfc">must</span> remain intact.</p>
+    <h3>6.4 Recover</h3>
+    <p>From the backup <code>nsec</code>/hex via ordinary key import (which <span class="rfc">may</span>
+       then be re-protected with a new passkey), or — in derived mode, and only within the relying-party scope
+       that created the credential (<a href="#webauthn">§5</a>) — from the same passkey plus the stored salts.
+       The exported backup is the sole recovery path across installations, origins, or extension-ID changes.</p>
+    <h3>6.5 Forget</h3>
+    <p>Deletes the configuration record and any vault. Implementations <span class="rfc">must</span> warn that
+       in derived mode this destroys the salts — the identity then survives only in exported backups — and that
+       the WebAuthn credential itself remains on the authenticator (WebAuthn offers no programmatic deletion)
+       but is no longer referenced.</p>
+
+    <h2 id="security">7. Security considerations</h2>
+    <ul>
+      <li><strong>PRF output is the secret.</strong> It <span class="rfc">must</span> be held only in memory,
+          zeroed where the platform allows, and never logged or persisted.</li>
+      <li><strong>User verification</strong> is the only authorisation gate on the identity; ceremonies
+          <span class="rfc">must not</span> downgrade it.</li>
+      <li><strong>Focus-loss resilience.</strong> Platform authenticator UI steals focus. Ceremonies
+          <span class="rfc">must</span> run in a context that survives losing focus (in an extension: a
+          dedicated window, not a toolbar popup that closes on blur).</li>
+      <li><strong>Atomicity.</strong> Persisting the configuration record before session-key activation makes an
+          interrupted creation recoverable (a locked identity) rather than orphaned. Implementations
+          <span class="rfc">must</span> order writes so no interruption produces unrecoverable partial state.</li>
+      <li><strong>Privileged surfaces.</strong> Messages that install key material into a session
+          <span class="rfc">must</span> be rejected when they arrive from web-content contexts.</li>
+      <li><strong>Loss model honesty.</strong> Derived mode has exactly two recovery paths: (passkey + salts) or
+          the exported backup. UX <span class="rfc">must not</span> suggest otherwise.</li>
+    </ul>
+
+    <h2 id="privacy">8. Privacy considerations</h2>
+    <ul>
+      <li>The configuration record reveals that an identity exists and its credential ID; it does not reveal the
+          identity itself, but implementations <span class="rfc">should</span> treat it as fingerprintable local
+          state.</li>
+      <li>The derived public key is, by design, a stable global identifier
+          (see the <a href="https://nostrcg.github.io/did-nostr/">did:nostr</a> privacy considerations).</li>
+      <li>No network interaction is required by any operation in this specification; conforming implementations
+          <span class="rfc">must not</span> transmit PRF outputs, salts, or secret keys.</li>
+    </ul>
+
+    <h2 id="implementations">9. Implementations</h2>
+    <ul>
+      <li><strong><a href="https://github.com/JavaScriptSolidServer/podkey">Podkey</a></strong> — primary
+          implementation (<code>src/passkey.js</code>); both modes.</li>
+      <li><strong>nostr-rust-forum</strong> — planned: extension-less passkey login implementing the §3/§4
+          construction for identities scoped to the forum's own origin. Podkey-held identities are used on the
+          forum via NIP-07 / NIP-98, not passkey re-derivation.</li>
+    </ul>
+
+    <h2 id="resources">10. Resources</h2>
+    <ul>
+      <li><a href="https://nostrcg.github.io/did-nostr/">Nostr DID Method Specification</a></li>
+      <li><a href="https://w3c.github.io/webauthn/">Web Authentication (WebAuthn) Level 3</a> — §10.1.4 PRF extension</li>
+      <li><a href="https://datatracker.ietf.org/doc/html/rfc5869">RFC 5869 — HKDF</a></li>
+      <li><a href="https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki">BIP-340 — Schnorr signatures for secp256k1</a></li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/19.md">NIP-19 — bech32-encoded entities (nsec)</a></li>
+      <li><a href="https://github.com/nostr-protocol/nips/blob/master/07.md">NIP-07 — window.nostr capability</a></li>
+    </ul>
+
+    <footer>
+      Podkey Passkey Identity Specification, draft v1 · <a href="https://github.com/JavaScriptSolidServer/podkey">github.com/JavaScriptSolidServer/podkey</a>
+    </footer>
+  </div>
+</body>
+</html>

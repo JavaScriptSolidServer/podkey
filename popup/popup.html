@@ -41,6 +41,12 @@
           </svg>
           Import existing key
         </button>
+        <details class="advanced-choice">
+          <summary>Advanced: passkey identity</summary>
+          <p class="advanced-audience">For managing agents or working under compliance rules: bind your key to a FIDO2 passkey — hardware-backed, phishing-resistant, and unlocked with biometrics or a security key.</p>
+          <button id="passkeyDerivedBtn" class="text-action" type="button">Create identity from a passkey</button>
+          <p>No passphrase. Your passkey recreates the same Nostr key. Export a backup in case the passkey is lost.</p>
+        </details>
       </div>
 
       <div class="info-box">
@@ -104,6 +110,8 @@
       </div>
 
       <div class="section">
+        <button id="passkeyUnlockBtn" class="btn btn-primary" type="button" hidden>Unlock with passkey</button>
+        <div id="unlockDivider" class="divider" hidden><span>Recovery</span></div>
         <label for="unlockPassphrase">Passphrase</label>
         <input id="unlockPassphrase" type="password" class="input" placeholder="Your passphrase" autocomplete="current-password" />
         <button id="unlockBtn" class="btn btn-primary" type="button">Unlock</button>
@@ -166,6 +174,56 @@
       </div>
     </div>
 
+    <!-- Passkey Backup Screen (derived identity: the backup must be
+         acknowledged before anything is persisted) -->
+    <div id="passkeyBackupScreen" class="screen" style="display: none">
+      <div class="header">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="8" cy="15" r="4" />
+            <path d="M10.85 12.15 19 4" />
+            <path d="m18 5 2 2" />
+            <path d="m15 8 2 2" />
+          </svg>
+        </div>
+        <div>
+          <h2>Save your backup key</h2>
+          <p class="subtitle">Required before your identity is created</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="identity-field">
+          <div class="identity-label">Private key (nsec)</div>
+          <div class="identity-value" id="backupNsec">Loading…</div>
+        </div>
+        <button id="backupCopyBtn" class="btn-copy" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          <span class="btn-copy-label">Copy private key</span>
+        </button>
+        <div class="hint">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+          <span>If your passkey is ever lost or unavailable, this backup is the <strong>only</strong> way to recover the identity. Store it somewhere safe and private — never share it.</span>
+        </div>
+        <label class="backup-ack">
+          <input type="checkbox" id="backupAckCheck" />
+          <span>I have stored this backup key safely</span>
+        </label>
+
+        <div class="actions">
+          <button id="backupCancelBtn" class="btn btn-secondary" type="button">Cancel</button>
+          <button id="backupFinishBtn" class="btn btn-primary" type="button" disabled>Create identity</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Main Screen (shown when key exists) -->
     <div id="mainScreen" class="screen" style="display: none">
       <div class="header">
@@ -223,6 +281,13 @@
             <span class="slider"></span>
           </label>
         </div>
+        <div class="settings-item settings-separated">
+          <div class="settings-text">
+            <div class="settings-label">Passkey unlock</div>
+            <div id="passkeySettingDesc" class="settings-desc">Use biometrics or a security key instead of typing your passphrase.</div>
+          </div>
+          <button id="enablePasskeyBtn" class="btn-small" type="button">Set up</button>
+        </div>
       </div>
 
       <div class="section">
@@ -241,6 +306,6 @@
       </div>
     </div>
 
-    <script src="popup.js"></script>
+    <script src="popup.bundle.js"></script>
   </body>
 </html>

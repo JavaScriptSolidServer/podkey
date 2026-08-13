@@ -9,3 +9,4 @@ dist/
 .vscode/
 .idea/
 src/background.bundle.js
+popup/popup.bundle.js
