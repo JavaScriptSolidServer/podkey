@@ -108,7 +108,8 @@ const ALLOWED_TYPES = new Set([
   'GET_PUBLIC_KEY',
   'SIGN_EVENT',
   'NIP44_ENCRYPT',
-  'NIP44_DECRYPT'
+  'NIP44_DECRYPT',
+  'SIDESTR_SIGN_TRANSACTION'
 ]);
 
 // Listen for requests from the injected script (NIP-07 relay)
@@ -133,6 +134,10 @@ window.addEventListener('podkey-request', async (event) => {
     if (data.pubkey) safeData.pubkey = String(data.pubkey);
     if (data.plaintext !== undefined) safeData.plaintext = String(data.plaintext || '');
     if (data.ciphertext !== undefined) safeData.ciphertext = String(data.ciphertext);
+  } else if (type === 'SIDESTR_SIGN_TRANSACTION') {
+    // Shape only; the background checks both and the spend window checks the rest.
+    safeData.chain = typeof data.chain === 'string' ? data.chain : '';
+    safeData.tx = typeof data.tx === 'string' ? data.tx : '';
   }
 
   try {
@@ -159,7 +164,8 @@ window.addEventListener('podkey-request', async (event) => {
       window.dispatchEvent(new CustomEvent('podkey-response', {
         detail: {
           id,
-          error: response.error
+          error: response.error,
+          ...(typeof response.code === 'string' ? { code: response.code } : {})
         }
       }));
       return;

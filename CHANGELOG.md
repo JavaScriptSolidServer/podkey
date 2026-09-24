@@ -5,7 +5,67 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.9] - 2026-09-24
+
+### Added
+
+- **sidestr spends: `window.nostr.sidestr.signTransaction({ chain, tx })`.**
+  Podkey is the reference signer for sidestr's browser-signer proposal
+  (`proposals/browser-signer.md` in sidestr/spec). A page on any sidestr chain
+  asks for a spend and never holds the key. Podkey's own spend window reads the
+  chain from its id (the signer's announcement, a mirror it names, every block
+  validated), checks that every input is your own mature, unspent coin, computes
+  each sighash itself, and shows what leaves your wallet: each recipient (their
+  npub, and their profile name when found), what comes back, the fee, and any
+  asset (SPEC 12) the spend moves, destroys or burns. Destroying or burning needs
+  an explicit tick. Every spend asks, whatever the site is trusted for; the key
+  stays in the background and signs only what the window computed, once.
+  Refusals reach the page with a `code`: `rejected`, `unsupported`,
+  `not-yours`, `invalid` or `unavailable`.
+- Chains beside a test network only for now. Each chain's signer is remembered
+  on first spend and a different one is refused, since a chain id is a name,
+  not a proof.
+- The sidestr engine is vendored at pinned commits (`scripts/vendor-sidestr.js`,
+  `vendor/sidestr/PINS.json` with a SHA-256 per file): Manifest V3 forbids code
+  from the network. Chains that name the EVM rule are `unsupported` until it is
+  vendored too.
+
+### Fixed
+
+- Requests from a page wait up to three minutes instead of 30 seconds, so a site
+  no longer times out while you unlock Podkey with a security key's PIN and
+  touch. Each request's timer is cleared when its answer arrives.
+
+- **Security keys: passkey windows no longer fail straight away.** A passkey
+  window started its WebAuthn ceremony on `DOMContentLoaded`, often before the
+  new window had focus, and WebAuthn refuses an unfocused document with the same
+  `NotAllowedError` as a cancel. Ceremonies now wait for focus.
+- **Security keys: the browser goes straight to the key.** The transports a
+  credential reports (`usb`, `nfc`, …) are stored and passed in
+  `allowCredentials`, so unlock asks to insert and touch the key instead of
+  opening the generic chooser that leads with a phone/QR option. Passkeys set up
+  before this keep working without the hint.
+- **"Unlock with passkey" showed with no passkey set up.** `.btn` overrode the
+  `hidden` attribute; a global `[hidden]` rule restores it.
+- Ceremony errors name the step and say what to do (PIN, touch, keep the window
+  in front); `InvalidStateError`, `NotSupportedError` and `SecurityError` get
+  their own messages. Failures show inline with **Try again** instead of an
+  `alert()` over a dead window, and set-up says which of its two touches is next.
+- Ceremony timeouts are three minutes (time to find a key and set a first PIN);
+  EdDSA and RS256 are offered after ES256 for authenticators that lack ES256.
+- A window opened only to unlock closes itself once unlocked, handing focus back
+  to the site that asked.
+- The **Set up** passkey button no longer stays on "Waiting…" after a failure.
+
+### Changed
+
+- The first-approval prompt says that approving also trusts the site from then
+  on (it always did; the prompt did not say so).
+- Export shows the key as `nsec`, the form other apps and Podkey's import take.
+- Plainer copy on the welcome, import and passkey screens; import says it takes
+  `nsec` or hex. Stronger text contrast in light and dark, a primary-button fill
+  that passes contrast in dark mode, and keyboard focus rings on every control.
+  Debug logging removed from the popup.
 
 ### Added
 

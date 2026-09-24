@@ -28,18 +28,72 @@ let pendingDerivedIdentity = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('[Podkey Popup] DOMContentLoaded fired');
   await checkKeypairStatus();
   setupEventListeners();
-  console.log('[Podkey Popup] Initialization complete');
 
   // When relaunched as a dedicated passkey window (?flow=…), start the
-  // requested ceremony immediately — see runPasskeyFlow.
-  const flow = new URLSearchParams(location.search).get('flow');
-  if (flow === 'create') handleCreatePasskeyIdentity();
-  else if (flow === 'enable') handleEnablePasskeyUnlock();
-  else if (flow === 'unlock') handlePasskeyUnlock();
+  // requested ceremony — see runPasskeyFlow — but only once this window has
+  // focus. WebAuthn refuses a ceremony from an unfocused document with the
+  // same NotAllowedError as a cancel, and a window created with focused:true
+  // is often not focused yet when DOMContentLoaded fires: that race was the
+  // "passkey prompt fails straight away" snag with security keys.
+  const handler = FLOW_HANDLERS[new URLSearchParams(location.search).get('flow')];
+  if (handler) {
+    showFlowStatus('Getting your passkey ready…');
+    await whenFocused();
+    handler();
+  }
 });
+
+const FLOW_HANDLERS = {
+  create: () => handleCreatePasskeyIdentity(),
+  enable: () => handleEnablePasskeyUnlock(),
+  unlock: () => handlePasskeyUnlock()
+};
+
+/** Resolve once this document has focus (at once if it already has). */
+function whenFocused() {
+  if (document.hasFocus()) return Promise.resolve();
+  return new Promise(resolve => window.addEventListener('focus', () => resolve(), { once: true }));
+}
+
+/**
+ * The passkey status line at the top of the window: what to do with the
+ * authenticator now, or what went wrong with a way to try again. Replaces
+ * alert() for ceremonies, which stacked a modal on top of the browser's own
+ * passkey dialog and left a dead window behind after a failure.
+ */
+function showFlowStatus(text, { error = false, retry = null } = {}) {
+  const box = document.getElementById('flowStatus');
+  document.getElementById('flowStatusText').textContent = text;
+  box.classList.toggle('error', error);
+  box.hidden = false;
+  const btn = document.getElementById('flowRetryBtn');
+  btn.hidden = !retry;
+  btn.onclick = retry ? () => { btn.hidden = true; retry(); } : null;
+}
+
+function hideFlowStatus() {
+  document.getElementById('flowStatus').hidden = true;
+}
+
+/** Whether this page runs in one of Podkey's own popup windows, not the toolbar popup. */
+async function inOwnWindow() {
+  try {
+    return (await chrome.windows.getCurrent()).type === 'popup';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A window Podkey opened only so the person could unlock (the background's
+ * unlock prompt, or a passkey relaunch) has done its job once the key is
+ * unlocked: close it and hand focus back to the site that asked.
+ */
+async function closeIfUnlockWindow() {
+  if (await inOwnWindow()) setTimeout(() => window.close(), 700);
+}
 
 /**
  * Run a WebAuthn ceremony in a context that survives losing focus. The
@@ -50,19 +104,15 @@ document.addEventListener('DOMContentLoaded', async () => {
  * let ?flow= restart the ceremony there.
  */
 async function runPasskeyFlow(flow, handler) {
-  let inOwnWindow = false;
-  try {
-    inOwnWindow = (await chrome.windows.getCurrent()).type === 'popup';
-  } catch { /* fall through: treat as action popup and relaunch */ }
-  if (inOwnWindow) {
+  if (await inOwnWindow()) {
     await handler();
     return;
   }
   await chrome.windows.create({
     url: chrome.runtime.getURL(`popup/popup.html?flow=${flow}`),
     type: 'popup',
-    width: 400,
-    height: 560,
+    width: 420,
+    height: 620,
     focused: true
   });
   window.close();
@@ -72,7 +122,6 @@ async function runPasskeyFlow(flow, handler) {
  * Check if keypair exists and show appropriate screen
  */
 async function checkKeypairStatus() {
-  console.log('[Podkey Popup] Checking keypair status...');
   try {
     const response = await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' });
     if (DEBUG) console.log('[Podkey Popup] Keypair status response:', response);
@@ -97,13 +146,9 @@ async function checkKeypairStatus() {
  * Show setup screen
  */
 function showSetupScreen() {
-  console.log('[Podkey Popup] Showing setup screen');
   hideAllScreens();
-  const setupScreen = document.getElementById('setupScreen');
-  console.log('[Podkey Popup] Setup screen element:', setupScreen);
-  setupScreen.style.display = 'block';
+  document.getElementById('setupScreen').style.display = 'block';
   currentScreen = 'setup';
-  console.log('[Podkey Popup] Setup screen display set to block');
 }
 
 async function getPasskeyConfig() {
@@ -200,7 +245,6 @@ function hideAllScreens() {
  * Setup event listeners
  */
 function setupEventListeners() {
-  console.log('[Podkey Popup] Setting up event listeners');
   // Setup screen
   document.getElementById('generateBtn').addEventListener('click', () => showGenerateScreen());
   document.getElementById('importBtn').addEventListener('click', () => showImportScreen());
@@ -247,12 +291,15 @@ function setupEventListeners() {
 
 async function registerPrfPasskey(label) {
   const prfSalt = newPasskeySalt();
-  const { credentialId } = await createPasskey(prfSalt, label);
+  showFlowStatus('Step 1 of 2: register a passkey. With a security key, insert it, enter its PIN if asked, and touch it.');
+  const { credentialId, transports } = await createPasskey(prfSalt, label);
   // Key material comes from a get() assertion — the operation every future
   // unlock performs — so what we derive or wrap now is exactly what the
   // passkey will reproduce later. (Second prompt is the cost of that proof.)
-  const prfOutput = await getPasskeyPrf(credentialId, prfSalt);
-  return { credentialId, prfOutput, prfSalt };
+  showFlowStatus('Step 2 of 2: confirm the same passkey once more. Touch your security key again.');
+  const prfOutput = await getPasskeyPrf(credentialId, prfSalt, transports);
+  hideFlowStatus();
+  return { credentialId, transports, prfOutput, prfSalt };
 }
 
 async function handleCreatePasskeyIdentity() {
@@ -264,7 +311,7 @@ async function handleCreatePasskeyIdentity() {
   try {
     btn.disabled = true;
     btn.textContent = 'Creating passkey…';
-    const { credentialId, prfOutput, prfSalt } = await registerPrfPasskey('Podkey Nostr identity');
+    const { credentialId, transports, prfOutput, prfSalt } = await registerPrfPasskey('Podkey Nostr identity');
     const derivationSalt = newPasskeySalt();
     const privateKey = await deriveNostrKey(prfOutput, derivationSalt);
     // Persist nothing yet: the identity only comes into existence once the
@@ -272,13 +319,13 @@ async function handleCreatePasskeyIdentity() {
     pendingDerivedIdentity = {
       privateKey,
       config: {
-        v: 1, mode: 'derived', credentialId,
+        v: 1, mode: 'derived', credentialId, transports,
         prfSalt: toBase64Url(prfSalt), derivationSalt: toBase64Url(derivationSalt)
       }
     };
     showBackupScreen(privateKey);
   } catch (error) {
-    alert(error.message || 'Could not create a passkey identity.');
+    showFlowStatus(error.message || 'Could not create a passkey identity.', { error: true, retry: handleCreatePasskeyIdentity });
   } finally {
     btn.disabled = false;
     btn.textContent = 'Create identity from a passkey';
@@ -345,14 +392,18 @@ async function handleEnablePasskeyUnlock() {
     btn.textContent = 'Waiting…';
     const { podkey_private_key: privateKey } = await chrome.storage.session.get(['podkey_private_key']);
     if (!privateKey) throw new Error('Unlock Podkey before setting up passkey unlock');
-    const { credentialId, prfOutput, prfSalt } = await registerPrfPasskey('Podkey unlock');
+    const { credentialId, transports, prfOutput, prfSalt } = await registerPrfPasskey('Podkey unlock');
     const wrapped = await wrapPrivateKey(privateKey, prfOutput);
     await chrome.storage.local.set({ [PASSKEY_CONFIG_KEY]: {
-      v: 1, mode: 'wrapped', credentialId, prfSalt: toBase64Url(prfSalt), wrapped
+      v: 1, mode: 'wrapped', credentialId, transports, prfSalt: toBase64Url(prfSalt), wrapped
     } });
     await showMainScreen(await chrome.runtime.sendMessage({ type: 'GET_KEYPAIR_STATUS' }));
+    showFlowStatus('Passkey unlock is ready. Next time, unlock with your passkey instead of your passphrase.');
   } catch (error) {
-    alert(error.message || 'Could not enable passkey unlock.');
+    showFlowStatus(error.message || 'Could not set up passkey unlock.', { error: true, retry: handleEnablePasskeyUnlock });
+    // showMainScreen restores the label on success; on failure put it back here
+    const config = await getPasskeyConfig();
+    btn.textContent = config ? 'Replace' : 'Set up';
   } finally {
     btn.disabled = false;
   }
@@ -362,18 +413,21 @@ async function handlePasskeyUnlock() {
   const btn = document.getElementById('passkeyUnlockBtn');
   try {
     btn.disabled = true;
-    btn.textContent = 'Waiting for passkey…';
+    btn.textContent = 'Waiting for your passkey…';
     const config = await getPasskeyConfig();
-    if (!config) throw new Error('No passkey is configured');
-    const prfOutput = await getPasskeyPrf(config.credentialId, fromBase64Url(config.prfSalt));
+    if (!config) throw new Error('No passkey is set up on this browser');
+    showFlowStatus('Use your passkey. With a security key, insert it, enter its PIN if asked, and touch it.');
+    const prfOutput = await getPasskeyPrf(config.credentialId, fromBase64Url(config.prfSalt), config.transports);
     const privateKey = config.mode === 'derived'
       ? await deriveNostrKey(prfOutput, fromBase64Url(config.derivationSalt))
       : await unwrapPrivateKey(config.wrapped, prfOutput);
     const response = await chrome.runtime.sendMessage({ type: 'SET_SESSION_KEY', privateKey });
     if (response?.error) throw new Error(response.error);
+    showFlowStatus('Unlocked.');
     await showMainScreen(response);
+    await closeIfUnlockWindow();
   } catch (error) {
-    alert(error.message || 'Passkey unlock failed.');
+    showFlowStatus(error.message || 'Passkey unlock failed.', { error: true, retry: handlePasskeyUnlock });
   } finally {
     btn.disabled = false;
     btn.textContent = 'Unlock with passkey';
@@ -452,6 +506,7 @@ async function handleUnlock() {
       publicKey: response.publicKey,
       did: response.did
     });
+    await closeIfUnlockWindow();
   } catch (error) {
     // 'Incorrect passphrase' from the background — keep it on-screen to retry.
     alert(error.message || 'Unlock failed.');
@@ -575,11 +630,9 @@ async function handleAutoSignToggle(event) {
  */
 async function handleExport() {
   const confirmed = confirm(
-    '⚠️ WARNING ⚠️\n\n' +
-    'You are about to reveal your private key.\n\n' +
-    'NEVER share this with anyone!\n' +
-    'Anyone with your private key can control your identity.\n\n' +
-    'Continue?'
+    'Show your private key?\n\n' +
+    'Anyone who sees it can act as you, everywhere you use this identity. ' +
+    'Only continue if you are saving a backup somewhere private.'
   );
 
   if (!confirmed) return;
@@ -597,8 +650,8 @@ async function handleExport() {
       return;
     }
 
-    // Show private key
-    prompt('Your Private Key (keep this safe!):', privateKey);
+    // nsec is the form other Nostr apps (and Podkey's own import) accept.
+    prompt('Your private key (nsec). Keep it private:', hexToNsec(privateKey));
   } catch (error) {
     alert('Error exporting key: ' + error.message);
   }

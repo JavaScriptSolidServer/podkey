@@ -1,0 +1,338 @@
+/**
+ * Podkey - sidestr spend window
+ * Builds on popup.css (tokens) and approve.css (header, origin, buttons,
+ * countdown). The question the layout answers first: what leaves my wallet,
+ * and where does it go.
+ */
+
+body {
+  width: 440px;
+}
+
+.spend [hidden] {
+  display: none !important;
+}
+
+.spend-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.spend-card.compact {
+  padding: 8px 14px;
+}
+
+.spend-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.spend-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 8px 0 10px;
+}
+
+/* ---- Loading steps ---- */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  position: relative;
+  padding: 5px 0 5px 24px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+.step::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+}
+
+.step.active {
+  color: var(--text);
+}
+
+.step.active::before {
+  border-color: var(--accent);
+  border-right-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+
+.step.done {
+  color: var(--text-muted);
+}
+
+.step.done::before {
+  border-color: var(--safe);
+  background: var(--safe);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step.active::before { animation: none; }
+}
+
+/* ---- Chain ---- */
+.chain-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chain-id {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.pill {
+  flex: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pill.safe {
+  background: var(--safe-soft);
+  border-color: var(--safe-border);
+  color: var(--safe);
+}
+
+.pill.warn {
+  background: var(--warn-soft);
+  border-color: var(--warn-border);
+  color: var(--warn);
+}
+
+.chain-check {
+  font-size: 12px;
+  color: var(--safe);
+  margin-top: 6px;
+}
+
+.chain-signer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.chain-signer code {
+  font-family: var(--mono);
+  color: var(--text);
+}
+
+/* ---- Rows ---- */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.rows li:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.who {
+  min-width: 0;
+}
+
+.who-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.who-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+  margin-top: 2px;
+}
+
+.amounts {
+  flex: none;
+  text-align: right;
+}
+
+.amount-main {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.amount-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.row-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+
+.row-label {
+  color: var(--text-muted);
+}
+
+.row-amount {
+  text-align: right;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.row-line.total {
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 8px;
+}
+
+.row-line.total .row-label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.row-line.total .row-amount {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---- Warnings ---- */
+.warn-box {
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  color: var(--danger);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.warn-box ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.ack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* ---- Details ---- */
+.spend-details {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.spend-details summary {
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.spend-details dl {
+  margin: 6px 0 0;
+}
+
+.spend-details dt {
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.spend-details dd {
+  margin: 2px 0 0;
+}
+
+.spend-details code,
+.plain li {
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- Outcomes ---- */
+.failure {
+  border-color: var(--danger-border);
+}
+
+.failure-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.failure-text {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.signed {
+  border-color: var(--safe-border);
+  background: var(--safe-soft);
+}

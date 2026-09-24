@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
+    <!-- Passkey status: what to do with the authenticator now, or what went
+         wrong and a way to try again (set by popup.js showFlowStatus) -->
+    <div id="flowStatus" class="flow-status" role="status" aria-live="polite" hidden>
+      <p id="flowStatusText"></p>
+      <button id="flowRetryBtn" class="btn btn-secondary" type="button" hidden>Try again</button>
+    </div>
+
     <!-- Setup Screen (shown when no key exists) -->
     <div id="setupScreen" class="screen" style="display: none">
       <div class="header center">
@@ -20,7 +27,7 @@
         </div>
         <h1>Welcome to Podkey</h1>
         <p class="subtitle">
-          did:nostr and Solid authentication for the decentralized web
+          One key, kept on this device, for Nostr apps and Solid pods
         </p>
       </div>
 
@@ -43,19 +50,18 @@
         </button>
         <details class="advanced-choice">
           <summary>Advanced: passkey identity</summary>
-          <p class="advanced-audience">For managing agents or working under compliance rules: bind your key to a FIDO2 passkey — hardware-backed, phishing-resistant, and unlocked with biometrics or a security key.</p>
+          <p class="advanced-audience">For managing agents or working under compliance rules: tie your key to a passkey — a security key such as a YubiKey, or your phone or computer's own passkey.</p>
           <button id="passkeyDerivedBtn" class="text-action" type="button">Create identity from a passkey</button>
-          <p>No passphrase. Your passkey recreates the same Nostr key. Export a backup in case the passkey is lost.</p>
+          <p>No passphrase: your passkey recreates the same key each time. You'll touch a security key twice while setting up, and it needs a PIN (your browser helps you set one). Save the backup Podkey shows you, in case the passkey is lost.</p>
         </details>
       </div>
 
       <div class="info-box">
         <div class="info-box-title">What is Podkey?</div>
         <p>
-          A browser extension for <strong>did:nostr</strong> and
-          <strong>Solid</strong> authentication. It holds your cryptographic
-          identity and signs in to Solid pods using your did:nostr identity —
-          your keys never leave this device.
+          Podkey holds your <strong>Nostr</strong> key and signs for you when a
+          site asks — posts, messages, and sign-in to <strong>Solid</strong>
+          pods. You approve each new site. Your key never leaves this device.
         </p>
       </div>
     </div>
@@ -134,15 +140,15 @@
         </div>
         <div>
           <h2>Import private key</h2>
-          <p class="subtitle">Enter your 64-character hex private key</p>
+          <p class="subtitle">Paste your nsec or 64-character hex key</p>
         </div>
       </div>
 
       <div class="section">
-        <label for="privateKeyInput">Private key (hex)</label>
+        <label for="privateKeyInput">Private key</label>
         <textarea
           id="privateKeyInput"
-          placeholder="64-character hexadecimal private key…"
+          placeholder="nsec1… or 64 hex characters"
           rows="3"
           spellcheck="false"
           autocomplete="off"
@@ -251,7 +257,7 @@
         </div>
 
         <div class="identity-field">
-          <div class="identity-label">Public key (npub hex)</div>
+          <div class="identity-label">Public key (hex)</div>
           <div class="identity-value" id="publicKey">Loading…</div>
         </div>
 

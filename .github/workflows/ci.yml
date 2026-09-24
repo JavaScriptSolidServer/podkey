@@ -37,7 +37,28 @@ jobs:
       - name: Package extension (sideloadable unpacked zip)
         run: |
           mkdir -p dist
-          zip -r dist/podkey-extension.zip manifest.json src popup $([ -d icons ] && echo icons) -x '*.test.js'
+          # vendor/ holds the sidestr engine the spend window imports (MV3 forbids remote code)
+          zip -r dist/podkey-extension.zip manifest.json src popup vendor $([ -d icons ] && echo icons) -x '*.test.js'
+
+      - name: Check the package holds every file the extension loads
+        run: |
+          python3 - <<'PY'
+          import json, re, zipfile
+          z = set(zipfile.ZipFile('dist/podkey-extension.zip').namelist())
+          m = json.load(open('manifest.json'))
+          need = [m['background']['service_worker'], m['action']['default_popup'], *m['icons'].values()]
+          need += [f for c in m['content_scripts'] for f in c['js']]
+          need += [f for w in m.get('web_accessible_resources', []) for f in w['resources']]
+          for page in ['popup/popup.html', 'popup/approve.html', 'popup/spend.html']:
+              need += ['popup/' + r for r in re.findall(r'(?:src|href)="([^"#?:]+)"', open(page).read())]
+          # the spend window's engine: every vendored file PINS.json records
+          for pin in json.load(open('vendor/sidestr/PINS.json'))['pins']:
+              need += [f"vendor/sidestr/{pin['name']}/{f}" for f in pin['files']]
+          missing = sorted(set(need) - z)
+          if missing:
+              raise SystemExit('missing from the package: ' + ', '.join(missing))
+          print(f'package holds all {len(set(need))} files the extension loads')
+          PY
 
       - name: Upload extension artifact
         uses: actions/upload-artifact@v4

@@ -39,6 +39,7 @@ before(async () => {
         forwarded.push(message);
         if (message.type === 'GET_PUBLIC_KEY') return 'a'.repeat(64);
         if (message.type === 'SIGN_EVENT') return { ...message.event, id: 'i'.repeat(64), sig: 's'.repeat(128) };
+        if (message.type === 'SIDESTR_SIGN_TRANSACTION' && message.tx === 'refuse') return { error: 'Input is not your coin', code: 'not-yours' };
         return 'OK';
       },
       lastError: null
@@ -138,5 +139,30 @@ describe('content-script field stripping (only safe fields forwarded)', () => {
     const msg = forwarded[0];
     assert.equal(typeof msg.pubkey, 'string');
     assert.equal(typeof msg.plaintext, 'string');
+  });
+
+  it('SIDESTR_SIGN_TRANSACTION forwards only chain + tx (as strings) + origin', async () => {
+    await request({ type: 'SIDESTR_SIGN_TRANSACTION', chain: 'sidestr:dreamlab', tx: '0200', digests: ['aa'], pub: 'x' });
+    const msg = forwarded[0];
+    assert.deepEqual(Object.keys(msg).sort(), ['chain', 'origin', 'tx', 'type']);
+    assert.equal(msg.chain, 'sidestr:dreamlab');
+    assert.equal(msg.tx, '0200');
+    await request({ type: 'SIDESTR_SIGN_TRANSACTION', chain: { evil: 1 }, tx: 7 });
+    assert.equal(forwarded[1].chain, '');
+    assert.equal(forwarded[1].tx, '');
+  });
+
+  it('passes a refusal code back to the page', async () => {
+    const res = await request({ type: 'SIDESTR_SIGN_TRANSACTION', chain: 'sidestr:dreamlab', tx: 'refuse' });
+    assert.equal(res.error, 'Input is not your coin');
+    assert.equal(res.code, 'not-yours');
+  });
+
+  it('never forwards the spend window\'s own message types from a page', async () => {
+    for (const type of ['SIDESTR_REQUEST', 'SIDESTR_SIGN_DIGESTS', 'SIDESTR_DONE', 'SIDESTR_KEEPALIVE']) {
+      const res = await request({ type, digests: ['00'.repeat(32)] });
+      assert.equal(res.error, 'Unknown request type');
+    }
+    assert.equal(forwarded.length, 0);
   });
 });

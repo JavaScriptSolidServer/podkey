@@ -14,8 +14,9 @@
 
   /* Text */
   --text: #1e293b;
-  --text-muted: #64748b;
-  --text-faint: #94a3b8;
+  --text-muted: #5b6b80;
+  /* decorative text only (placeholders, separators); never body copy */
+  --text-faint: #8391a5;
 
   /* Borders */
   --border: #e2e8f0;
@@ -26,6 +27,9 @@
   --accent-hover: #1d4ed8;
   --accent-soft: #eff6ff;
   --accent-ring: rgba(37, 99, 235, 0.25);
+  /* fill behind white text: dark mode's lighter --accent fails contrast there */
+  --accent-solid: #2563eb;
+  --accent-solid-hover: #1d4ed8;
 
   /* Semantic */
   --safe: #16a34a;
@@ -64,8 +68,8 @@
     --surface-inset: #0f151d;
 
     --text: #e6eaf0;
-    --text-muted: #9aa6b6;
-    --text-faint: #6b7888;
+    --text-muted: #a3afbf;
+    --text-faint: #7b8898;
 
     --border: #2a3340;
     --border-strong: #3a4452;
@@ -74,6 +78,8 @@
     --accent-hover: #74a0f4;
     --accent-soft: #16223a;
     --accent-ring: rgba(91, 141, 239, 0.35);
+    --accent-solid: #2f63d4;
+    --accent-solid-hover: #3a6fe0;
 
     --safe: #4ade80;
     --safe-hover: #6ee79a;
@@ -246,13 +252,13 @@ h2 {
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: var(--accent-solid);
   color: #fff;
   box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--accent-solid-hover);
 }
 
 .btn-secondary {
@@ -279,12 +285,65 @@ h2 {
 .advanced-choice p { margin-top: 7px; line-height: 1.45; }
 .advanced-choice .advanced-audience { color: var(--text-muted); border-left: 2px solid var(--border-strong); padding-left: 9px; }
 .text-action { width: 100%; margin-top: 10px; padding: 9px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
-.divider { display: flex; align-items: center; gap: 8px; margin: 12px 0; color: var(--text-faint); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.divider { display: flex; align-items: center; gap: 8px; margin: 12px 0; color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 .divider::before, .divider::after { content: ''; height: 1px; flex: 1; background: var(--border); }
 .settings-separated { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
 .btn-small { flex: none; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: var(--surface); color: var(--accent); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 .backup-ack { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 12px; color: var(--text); cursor: pointer; }
 .backup-ack input { accent-color: var(--accent); width: 15px; height: 15px; flex: none; cursor: pointer; }
+
+/* Keyboard focus for every control that had none (small buttons, the
+   passkey summary, footer links, toggles). */
+.btn-small:focus-visible,
+.text-action:focus-visible,
+.btn-copy:focus-visible,
+.btn-remove:focus-visible,
+.advanced-choice summary:focus-visible,
+.footer a:focus-visible,
+.toggle input:focus-visible + .slider {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  border-radius: var(--radius-sm);
+}
+
+.btn-small:hover,
+.text-action:hover {
+  background: var(--surface-2);
+}
+
+.btn-small[disabled],
+.text-action[disabled] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* ---- Passkey status line ---- */
+.flow-status {
+  margin: 12px 18px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.flow-status.error {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.flow-status .btn {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+[hidden] {
+  display: none !important;
+}
 
 /* ---- Identity ---- */
 .identity-section .section-title {
@@ -584,7 +643,7 @@ input:focus-visible + .slider {
 .empty-state {
   text-align: center;
   padding: 22px 16px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   font-size: 12.5px;
 }
 

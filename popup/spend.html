@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Podkey — Spend request</title>
+    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="approve.css" />
+    <link rel="stylesheet" href="spend.css" />
+  </head>
+  <body>
+    <main class="approve spend">
+      <div class="approve-head">
+        <div class="approve-shield" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="14" rx="2" />
+            <path d="M16 13h2" />
+            <path d="M2 10h20" />
+          </svg>
+        </div>
+        <div>
+          <div class="approve-title">Spend request</div>
+          <div class="approve-sub">Nothing leaves your wallet until you sign</div>
+        </div>
+      </div>
+
+      <section class="origin-block">
+        <div class="origin-eyebrow">Requested by</div>
+        <code class="origin-badge" id="origin">…</code>
+      </section>
+
+      <!-- 1. Podkey reads the chain itself -->
+      <section id="loading" class="spend-card" aria-live="polite">
+        <div class="spend-eyebrow">Podkey is checking <span id="loadingChain">the chain</span> itself</div>
+        <ol class="steps">
+          <li id="stepFind" class="step">Finding the chain and its signer</li>
+          <li id="stepCheck" class="step">Checking every block</li>
+          <li id="stepReview" class="step">Reading the spend against your coins</li>
+        </ol>
+        <p class="spend-hint">The site only sent the transaction. Everything below comes from Podkey's own reading of the chain.</p>
+      </section>
+
+      <!-- 2. The spend, as Podkey read it -->
+      <section id="review" hidden>
+        <div class="spend-card chain-card">
+          <div class="chain-row">
+            <code class="chain-id" id="chainId"></code>
+            <span class="pill" id="network"></span>
+          </div>
+          <div class="chain-check" id="chainCheck"></div>
+          <div class="chain-signer">
+            <span>Signer</span> <code id="signer"></code>
+            <span class="pill" id="signerPin"></span>
+          </div>
+        </div>
+
+        <div class="spend-card">
+          <div class="spend-eyebrow">Sending</div>
+          <ul class="rows" id="sending"></ul>
+        </div>
+
+        <div class="spend-card compact" id="backCard" hidden>
+          <div class="row-line">
+            <span class="row-label">Back to you</span>
+            <span class="row-amount" id="back"></span>
+          </div>
+        </div>
+
+        <div class="spend-card compact">
+          <div class="row-line">
+            <span class="row-label">Network fee</span>
+            <span class="row-amount" id="fee"></span>
+          </div>
+          <div class="row-line total">
+            <span class="row-label">Leaves your wallet</span>
+            <span class="row-amount" id="total"></span>
+          </div>
+        </div>
+
+        <p class="spend-hint" id="assetNote" hidden></p>
+
+        <div class="warn-box" id="warnings" hidden role="alert">
+          <ul id="warningList"></ul>
+          <label class="ack" id="ackRow" hidden>
+            <input type="checkbox" id="ack" />
+            <span>I understand, sign anyway</span>
+          </label>
+        </div>
+
+        <details class="spend-details">
+          <summary>Details</summary>
+          <dl>
+            <dt>Transaction id</dt><dd><code id="txid"></code></dd>
+            <dt>Your coins spent</dt><dd><ul class="plain" id="inputs"></ul></dd>
+            <dt>Asset records</dt><dd><ul class="plain" id="records"></ul></dd>
+            <dt>Mirror</dt><dd><code id="mirror"></code></dd>
+          </dl>
+        </details>
+
+        <div class="btn-row">
+          <button class="btn btn-deny" id="reject" type="button" autofocus>Reject</button>
+          <button class="btn btn-approve" id="sign" type="button" disabled>Sign</button>
+        </div>
+      </section>
+
+      <!-- 3. Podkey will not sign this -->
+      <section id="failure" class="spend-card failure" hidden role="alert">
+        <div class="failure-title" id="failureTitle">Podkey can't sign this</div>
+        <p class="failure-text" id="failureText"></p>
+        <div id="forgetRow" hidden>
+          <p class="spend-hint">Only do this if the chain's operator told you its signer changed. Podkey will then trust whichever signer announces this chain next.</p>
+          <label class="ack"><input type="checkbox" id="forgetAck" /><span>The operator told me the signer changed</span></label>
+          <button class="btn btn-deny" id="forget" type="button" disabled>Forget the old signer</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-deny" id="close" type="button">Close</button>
+        </div>
+      </section>
+
+      <section id="signed" class="spend-card signed" hidden aria-live="polite">
+        <div class="failure-title">Signed</div>
+        <p class="failure-text">The site now sends it to the chain.</p>
+      </section>
+
+      <div class="countdown" id="countdownWrap">
+        <div class="countdown-text">
+          Closes in <strong id="countdown">4:00</strong>
+        </div>
+        <div class="timeout-bar">
+          <div class="timeout-bar-inner" id="timeoutBar"></div>
+        </div>
+      </div>
+    </main>
+    <script type="module" src="spend.js"></script>
+  </body>
+</html>

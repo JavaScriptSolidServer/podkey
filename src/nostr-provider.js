@@ -94,25 +94,67 @@
           ciphertext
         });
       }
-    }
+    },
+
+    /**
+     * sidestr spends (sidestr/spec proposals/browser-signer.md). Podkey reads
+     * and validates the chain itself, shows the spend in its own window and
+     * asks every time; the page supplies only the chain id and the
+     * transaction. Rejections carry `code`: rejected, unsupported, not-yours,
+     * invalid or unavailable.
+     */
+    sidestr: Object.freeze({
+      version: 1,
+      // what a page calls this signer in its own copy ("Podkey will show you this spend")
+      name: 'Podkey',
+
+      /**
+       * @param {{chain: string, tx: string}} request - chain id and the
+       *   transaction as hex (any witness is ignored and replaced)
+       * @returns {Promise<{tx: string, txid: string}>} the signed transaction
+       */
+      signTransaction: async (request) => {
+        if (!request || typeof request !== 'object') {
+          throw Object.assign(new Error('signTransaction takes { chain, tx }'), { code: 'invalid' });
+        }
+        return sendMessageToExtension({
+          type: 'SIDESTR_SIGN_TRANSACTION',
+          chain: request.chain,
+          tx: request.tx
+        }, SPEND_TIMEOUT_MS);
+      }
+    })
   };
+
+  // A spend waits for Podkey to read the chain and for the person to decide,
+  // so it gets longer than the 30 seconds other requests do. Podkey's own
+  // window closes itself before this.
+  const SPEND_TIMEOUT_MS = 5 * 60 * 1000;
 
   /**
    * Send message to extension background script
    * @param {object} message - Message to send
    * @returns {Promise<any>} Response from extension
    */
-  async function sendMessageToExtension (message) {
+  // Three minutes by default: a request that finds Podkey locked waits for the
+  // person to unlock it, and a security key's PIN and touch take longer than
+  // the 30 seconds this used to allow (the site saw a timeout although the
+  // unlock succeeded).
+  async function sendMessageToExtension (message, timeoutMs = 180000) {
     return new Promise((resolve, reject) => {
       // Create custom event to communicate with content script
       const eventId = Math.random().toString(36).substring(7);
 
+      let timer = null;
       const handler = (event) => {
         if (event.detail.id === eventId) {
           window.removeEventListener('podkey-response', handler);
+          clearTimeout(timer);
 
           if (event.detail.error) {
-            reject(new Error(event.detail.error));
+            const error = new Error(event.detail.error);
+            if (event.detail.code) error.code = event.detail.code;
+            reject(error);
           } else {
             resolve(event.detail.result);
           }
@@ -129,11 +171,12 @@
         }
       }));
 
-      // Timeout after 30 seconds
-      setTimeout(() => {
+      // Cleared when the answer arrives, so a spend's five-minute wait does
+      // not outlive it.
+      timer = setTimeout(() => {
         window.removeEventListener('podkey-response', handler);
-        reject(new Error('Podkey request timeout'));
-      }, 30000);
+        reject(Object.assign(new Error('Podkey request timeout'), { code: 'unavailable' }));
+      }, timeoutMs);
     });
   }
 

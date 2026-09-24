@@ -3,7 +3,8 @@
  *
  * The provider must advertise ONLY what it implements, so that page-side
  * feature-detection is truthful:
- *   - exposes getPublicKey, signEvent, nip44.{encrypt,decrypt}
+ *   - exposes getPublicKey, signEvent, nip44.{encrypt,decrypt}, and
+ *     sidestr.signTransaction (sidestr/spec proposals/browser-signer.md)
  *   - does NOT expose nip04 (deprecated, unauthenticated; not shipped)
  *   - does NOT expose getRelays (Podkey holds no relay list)
  *
@@ -30,8 +31,16 @@ before(async () => {
 });
 
 describe('provider surface (honest feature-detection)', () => {
-  it('exposes exactly getPublicKey, signEvent and nip44', () => {
-    assert.deepEqual(Object.keys(nostr).sort(), ['getPublicKey', 'nip44', 'signEvent']);
+  it('exposes exactly getPublicKey, signEvent, nip44 and sidestr', () => {
+    assert.deepEqual(Object.keys(nostr).sort(), ['getPublicKey', 'nip44', 'sidestr', 'signEvent']);
+  });
+
+  it('sidestr is frozen, version 1, named, and offers only signTransaction', () => {
+    assert.equal(Object.isFrozen(nostr.sidestr), true);
+    assert.equal(nostr.sidestr.version, 1);
+    assert.equal(nostr.sidestr.name, 'Podkey');
+    assert.deepEqual(Object.keys(nostr.sidestr).sort(), ['name', 'signTransaction', 'version']);
+    assert.equal(typeof nostr.sidestr.signTransaction, 'function');
   });
 
   it('exposes nip44.encrypt and nip44.decrypt as functions', () => {
@@ -141,6 +150,34 @@ describe('provider request wiring (podkey-request CustomEvent)', () => {
     assert.equal(req.pubkey, 'f'.repeat(64));
     assert.equal(req.ciphertext, 'BASE64PAYLOAD');
     assert.equal(await resP, 'plaintext-out');
+  });
+
+  it('sidestr.signTransaction dispatches SIDESTR_SIGN_TRANSACTION with chain + tx only', async () => {
+    const reqP = captureRequest(() => ({ tx: 'ab', txid: 'c'.repeat(64) }));
+    const resP = nostr.sidestr.signTransaction({ chain: 'sidestr:dreamlab', tx: '0200', extra: 'dropped' });
+    const req = await reqP;
+    assert.equal(req.type, 'SIDESTR_SIGN_TRANSACTION');
+    assert.equal(req.chain, 'sidestr:dreamlab');
+    assert.equal(req.tx, '0200');
+    assert.equal('extra' in req, false);
+    assert.deepEqual(await resP, { tx: 'ab', txid: 'c'.repeat(64) });
+  });
+
+  it('sidestr.signTransaction rejects a non-object request with code invalid', async () => {
+    await assert.rejects(() => nostr.sidestr.signTransaction(null), (e) => e.code === 'invalid');
+  });
+
+  it('a refused spend reaches the page with its code', async () => {
+    const handler = (e) => {
+      global.window.removeEventListener('podkey-request', handler);
+      queueMicrotask(() => {
+        global.window.dispatchEvent(new CustomEvent('podkey-response', {
+          detail: { id: e.detail.id, error: 'You rejected the spend', code: 'rejected' }
+        }));
+      });
+    };
+    global.window.addEventListener('podkey-request', handler);
+    await assert.rejects(() => nostr.sidestr.signTransaction({ chain: 'sidestr:x', tx: '00' }), (e) => e.code === 'rejected' && /rejected the spend/.test(e.message));
   });
 
   it('propagates a background error back to the caller as a rejection', async () => {
