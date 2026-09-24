@@ -136,7 +136,11 @@
    * @param {object} message - Message to send
    * @returns {Promise<any>} Response from extension
    */
-  async function sendMessageToExtension (message, timeoutMs = 30000) {
+  // Three minutes by default: a request that finds Podkey locked waits for the
+  // person to unlock it, and a security key's PIN and touch take longer than
+  // the 30 seconds this used to allow (the site saw a timeout although the
+  // unlock succeeded).
+  async function sendMessageToExtension (message, timeoutMs = 180000) {
     return new Promise((resolve, reject) => {
       // Create custom event to communicate with content script
       const eventId = Math.random().toString(36).substring(7);

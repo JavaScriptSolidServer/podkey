@@ -118,6 +118,33 @@ const payload = await window.nostr.nip44.encrypt(peer, 'hello')
 const plaintext = await window.nostr.nip44.decrypt(peer, payload)
 ```
 
+#### `window.nostr.sidestr.signTransaction({ chain, tx })`
+
+Signs a spend on a [sidestr](https://sidestr.com) chain, per sidestr's
+[browser-signer proposal](https://github.com/sidestr/spec/blob/gh-pages/proposals/browser-signer.md).
+A sidestr coin pays `OP_1 <your key>`, so the key Podkey guards is the key that
+spends your coins. `chain` is a chain id such as `sidestr:dreamlab`; `tx` is the
+transaction as hex (any witness is ignored). It resolves `{ tx, txid }` with
+every input signed, or rejects with an `Error` whose `code` is `rejected`,
+`unsupported`, `not-yours`, `invalid` or `unavailable`.
+
+```javascript
+if (window.nostr?.sidestr?.version >= 1) {
+  const { tx, txid } = await window.nostr.sidestr.signTransaction({ chain: 'sidestr:dreamlab', tx: unsignedHex })
+  // publish `tx` as a kind 23500 event from any key: a transaction authorises itself
+}
+```
+
+The page is trusted for nothing but the request. Podkey opens its own spend
+window, reads the chain from its id (the signer's tip announcement, a mirror it
+names, every block validated), checks that every input is your own mature,
+unspent coin, computes each sighash itself, and shows what leaves your wallet:
+each recipient, what comes back, the fee, and any asset the spend moves or
+destroys. It asks every time, whatever else the site is trusted for, and signs
+only after you confirm. It takes chains beside test networks only for now, and
+remembers each chain's signer on the first spend so that a different signer
+announcing the same id is refused.
+
 ## Architecture
 
 ```
@@ -137,6 +164,13 @@ const plaintext = await window.nostr.nip44.decrypt(peer, payload)
 │  Page bridge (src/injected.js)           │
 │   injects window.nostr, relays requests  │
 │   to the worker, whitelists message types│
+│                                          │
+│  sidestr spend window (popup/spend.*,    │
+│   src/sidestr/)                          │
+│   validates the chain with the vendored  │
+│   engine (vendor/sidestr/), reviews and  │
+│   shows the spend; the worker signs its  │
+│   sighashes once, after you confirm      │
 └─────────────────────────────────────────┘
 ```
 

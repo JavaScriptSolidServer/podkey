@@ -637,7 +637,7 @@ async function showPermissionPrompt (origin, action, eventPreview) {
       url: `popup/approve.html?${params.toString()}`,
       type: 'popup',
       width: 420,
-      height: 380,
+      height: 470, // room for the trust note without scrolling
       focused: true
     });
   });
