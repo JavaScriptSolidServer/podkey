@@ -69,3 +69,13 @@ test('hexToNsec rejects non-hex and wrong-length input', () => {
   assert.throws(() => hexToNsec('zz' + HEX.slice(2)), /Invalid key/);
   assert.throws(() => hexToNsec(null), /Invalid key/);
 });
+
+test('hexToNpub encodes the NIP-19 test vector', async () => {
+  const { hexToNpub } = await import('../src/keyformat.js');
+  assert.equal(hexToNpub('3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d'), 'npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6');
+});
+
+test('hexToNpub refuses anything but 64 hex characters', async () => {
+  const { hexToNpub } = await import('../src/keyformat.js');
+  assert.throws(() => hexToNpub('xyz'), /Invalid key/);
+});

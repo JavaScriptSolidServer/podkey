@@ -163,6 +163,22 @@ export function hexToNsec (hex) {
 }
 
 /**
+ * Encode a 64-char hex x-only public key as its NIP-19 `npub1…` form. The
+ * sidestr spend window shows a coin that pays `OP_1 <key>` as the Nostr
+ * identity it is, since that is how people know each other.
+ * @param {string} hex 64-char hex public key
+ * @returns {string} npub1… bech32 string
+ */
+export function hexToNpub (hex) {
+  if (typeof hex !== 'string' || !/^[0-9a-fA-F]{64}$/.test(hex)) {
+    throw new Error('Invalid key');
+  }
+  const bytes = [];
+  for (let i = 0; i < 64; i += 2) bytes.push(parseInt(hex.slice(i, i + 2), 16));
+  return bech32Encode('npub', convertBits(bytes, 8, 5, true));
+}
+
+/**
  * Normalise a pasted private key into canonical 64-char lowercase hex, accepting
  * either raw hex or an `nsec1…` bech32 key. The nsec form is converted inline so
  * an existing-key import "just works" regardless of which form the user pasted.

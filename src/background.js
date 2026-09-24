@@ -3,7 +3,8 @@
  * Coordinates key management, signing, and Solid auto-auth
  */
 
-import { generateKeypair, signEvent, getPublicKey } from './crypto.js';
+import { generateKeypair, signEvent, getPublicKey, signSighashes } from './crypto.js';
+import { createSpends } from './sidestr/spends.js';
 import {
   getConversationKey,
   encrypt as nip44Encrypt,
@@ -66,8 +67,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(result);
     })
     .catch(error => {
-      console.error('[Podkey] Error handling message:', message.type, error);
-      sendResponse({ error: error.message });
+      // A refused spend is an answer, not a fault: only log the unexpected.
+      if (!error?.code) console.error('[Podkey] Error handling message:', message.type, error);
+      sendResponse({ error: error.message, ...(typeof error?.code === 'string' ? { code: error.code } : {}) });
     });
 
   return true; // Async response
@@ -94,7 +96,12 @@ const EXTENSION_UI_ONLY_TYPES = new Set([
   'UNLOCK_VAULT',
   'LOCK_VAULT',
   'SET_SESSION_KEY',
-  'GET_KEYPAIR_STATUS'
+  'GET_KEYPAIR_STATUS',
+  // the sidestr spend window's side of a spend (src/sidestr/spends.js)
+  'SIDESTR_REQUEST',
+  'SIDESTR_SIGN_DIGESTS',
+  'SIDESTR_DONE',
+  'SIDESTR_KEEPALIVE'
 ]);
 
 function isExtensionUiSender (sender) {
@@ -149,6 +156,23 @@ async function handleMessage (message, sender) {
     case 'NIP44_GET_CONVERSATION_KEY':
       return await handleNip44GetConversationKey(message.pubkey, origin);
 
+    case 'SIDESTR_SIGN_TRANSACTION':
+      return await spends.request({ chain: message.chain, tx: message.tx }, pageOrigin(sender, origin));
+
+    case 'SIDESTR_REQUEST':
+      return spends.describe(message.id);
+
+    case 'SIDESTR_SIGN_DIGESTS':
+      return await spends.signDigests(message.id, message.digests);
+
+    case 'SIDESTR_DONE':
+      spends.done(message.id, { result: message.result, error: message.error });
+      return { ok: true };
+
+    case 'SIDESTR_KEEPALIVE':
+      // the spend window pings while it is open, so the worker outlives a slow decision
+      return { ok: spends.pending.has(message.id) };
+
     case 'CREATE_NIP98_AUTH_HEADER':
       return await createNip98AuthHeader(
         message.url,
@@ -160,6 +184,38 @@ async function handleMessage (message, sender) {
     default:
       throw new Error(`Unknown message type: ${type}`);
   }
+}
+
+/**
+ * sidestr spends (sidestr/spec proposals/browser-signer.md). Each one opens the
+ * spend window, which reads the chain itself and shows the spend; the key stays
+ * here and signs only the sighashes that window computed, once, after the
+ * person confirms. See src/sidestr/spends.js.
+ */
+const spends = createSpends({
+  ensureUnlocked: () => ensureUnlocked(),
+  getKeypair: () => getKeypair(),
+  signSighashes,
+  openWindow: (id) => new Promise((resolve, reject) => {
+    chrome.windows.create({
+      url: `popup/spend.html?${new URLSearchParams({ id })}`,
+      type: 'popup',
+      width: 440,
+      height: 720,
+      focused: true
+    }, (w) => (chrome.runtime.lastError ? reject(new Error(chrome.runtime.lastError.message)) : resolve(w?.id ?? null)));
+  })
+});
+
+// Closing the spend window rejects the spend. (Guarded: the unit tests' chrome stub has no windows API.)
+chrome.windows?.onRemoved?.addListener((windowId) => spends.windowClosed(windowId));
+
+// The origin shown for a spend is the one Chrome reports for the sending
+// frame, not anything the page wrote into the message.
+function pageOrigin (sender, claimed) {
+  if (sender?.origin && sender.origin !== 'null') return sender.origin;
+  try { if (sender?.url) return new URL(sender.url).origin; } catch { /* not a URL: fall back */ }
+  return claimed;
 }
 
 /**

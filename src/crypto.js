@@ -97,6 +97,35 @@ export async function signEvent (event, privateKeyHex) {
 }
 
 /**
+ * BIP 340 signatures over sidestr key-path sighashes.
+ *
+ * Deliberately NOT a page-facing "sign these 32 bytes" call: a signature over
+ * arbitrary bytes is also a signature over any event id. Only the background's
+ * SIDESTR_SIGN_DIGESTS path calls this, for digests the spend window computed
+ * itself from Podkey's own reading of the chain, once per approved request.
+ * Every signature is self-verified before it leaves, as signEvent does.
+ * @param {string[]} digestsHex - 64-char hex sighashes
+ * @param {string} privateKeyHex - 64-char hex private key
+ * @returns {string[]} 128-char hex signatures, in order
+ */
+export function signSighashes (digestsHex, privateKeyHex) {
+  validatePrivateKey(privateKeyHex);
+  const privateKeyBytes = hexToBytes(privateKeyHex);
+  const pubkeyBytes = hexToBytes(getPublicKey(privateKeyHex));
+  return digestsHex.map((digestHex) => {
+    if (typeof digestHex !== 'string' || !/^[0-9a-f]{64}$/.test(digestHex)) {
+      throw new Error('A sighash is 32 bytes of lowercase hex');
+    }
+    const digest = hexToBytes(digestHex);
+    const signature = schnorr.sign(digest, privateKeyBytes);
+    if (!schnorr.verify(signature, digest, pubkeyBytes)) {
+      throw new Error('Signature self-verification failed');
+    }
+    return bytesToHex(signature);
+  });
+}
+
+/**
  * Verify a signed Nostr event
  * @param {object} event - Signed event
  * @returns {Promise<boolean>} True if signature is valid
