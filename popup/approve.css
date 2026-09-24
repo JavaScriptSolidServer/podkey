@@ -220,7 +220,7 @@ body {
   justify-content: center;
   gap: 6px;
   font-size: 11px;
-  color: var(--text-faint);
+  color: var(--text-muted);
   margin-bottom: 7px;
 }
 
