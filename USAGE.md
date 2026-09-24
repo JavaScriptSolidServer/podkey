@@ -4,6 +4,12 @@
 
 ## Quick Start Guide
 
+**Quickest:** download the ready-built extension instead of building it. Open the
+[latest successful build of `main`](https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess),
+click the top run, download **podkey-extension** under **Artifacts** (signed in to
+GitHub), unzip it, and go to [Step 3](#step-3-load-extension-in-chrome), picking the
+unzipped folder. The steps below build it from source.
+
 ### Step 1: Install Dependencies
 
 ```bash

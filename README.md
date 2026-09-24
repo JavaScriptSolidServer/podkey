@@ -2,7 +2,7 @@
 
 > Browser extension for **did:nostr** and **Solid** authentication
 
-[![Version](https://img.shields.io/badge/version-0.0.8-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/releases)
+[![Version](https://img.shields.io/badge/version-0.0.9-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
@@ -52,15 +52,24 @@ stays inside the extension and never reaches the page.
 
 ## Install
 
-### From a packaged release
+### Download the build
 
-1. Download the latest `podkey-extension` build from the
-   [releases page](https://github.com/JavaScriptSolidServer/podkey/releases) and
-   unzip it.
-2. Open `chrome://extensions` (or `edge://extensions`).
-3. Enable **Developer mode** (top-right).
-4. Click **Load unpacked** and select the unzipped folder containing
-   `manifest.json`.
+Every push to `main` is built, tested and packaged by CI. There are no tagged
+releases yet: the latest build is the download.
+
+1. Open the [latest successful build of `main`](https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)
+   and click the top run.
+2. Under **Artifacts**, download **podkey-extension** (you need to be signed in
+   to GitHub; each build is kept for 90 days) and unzip it. The folder it
+   gives you holds `manifest.json`.
+3. Open `chrome://extensions` (or `edge://extensions`), turn on
+   **Developer mode** (top right), click **Load unpacked** and pick that folder.
+
+To update, download a newer build, replace the contents of the **same folder**
+and click the reload arrow on Podkey's card in `chrome://extensions`. Chrome
+ties an unpacked extension's storage to its folder, so this keeps your key;
+loading a build from a different folder starts a fresh Podkey with no key.
+Export a backup from the popup before you move it.
 
 ### From source
 
@@ -71,7 +80,7 @@ npm install
 npm run build      # bundles the background worker and passkey-enabled popup
 ```
 
-Then load the `podkey` directory as an unpacked extension (steps 2–4 above).
+Then load the `podkey` directory as an unpacked extension (step 3 above).
 
 Pin the toolbar icon (🔑), open it, and generate or import a 64-character hex
 key, choosing an **encryption passphrase**. The key is sealed under that
@@ -266,8 +275,9 @@ podkey/
 
 Tests cover the consent flow, NIP-44 against the official spec vectors, NIP-98
 token shape, the content-script message whitelist, and signature self-verify.
-CI runs build, test and lint on every pull request and push to `main`, and
-uploads a sideloadable extension zip.
+CI runs build, test and lint on every pull request and push to `main`, checks
+that the package holds every file the extension loads, and uploads the unpacked
+extension as the `podkey-extension` artifact (see [Install](#install)).
 
 ## Roadmap
 
