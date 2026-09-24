@@ -131,12 +131,14 @@
 
   <section id="install">
     <h2>Install</h2>
-    <p style="color:var(--muted)">From source, or a packaged release:</p>
+    <p style="color:var(--muted)">Download the build: open the <a href="https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess">latest successful build of <code>main</code></a>, click the top run, and download <strong>podkey-extension</strong> under <em>Artifacts</em> (signed in to GitHub; each build is kept for 90 days). Unzip it, open <code>chrome://extensions</code>, enable <strong>Developer mode</strong>, click <strong>Load unpacked</strong>, and select the folder containing <code>manifest.json</code>. Pin the 🔑 icon, then generate or import a key and set an encryption passphrase.</p>
+    <p style="color:var(--muted)">To update, replace that same folder's contents with a newer build and reload Podkey in <code>chrome://extensions</code>; a different folder starts a fresh Podkey with no key.</p>
+    <p style="color:var(--muted)">Or from source:</p>
     <pre><code>git clone https://github.com/JavaScriptSolidServer/podkey.git
 cd podkey
 npm install
 npm run build      # bundles deps into the service worker</code></pre>
-    <p style="color:var(--muted)">Then open <code>chrome://extensions</code>, enable <strong>Developer mode</strong>, click <strong>Load unpacked</strong>, and select the folder containing <code>manifest.json</code>. Pin the 🔑 icon, then generate or import a key and set an encryption passphrase.</p>
+    <p style="color:var(--muted)">then load the <code>podkey</code> folder the same way.</p>
     <p class="note">Manifest V3 · bundles all code (no remotely-hosted scripts) · <code>script-src 'self'</code> CSP · AGPL-3.0.</p>
   </section>
 
