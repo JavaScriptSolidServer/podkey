@@ -89,46 +89,103 @@ const PRF_UNSUPPORTED_MESSAGE =
   'Try a phone passkey or a modern security key that supports PRF, or create a ' +
   'passphrase-based key instead.';
 
+// Transports an authenticator can report (WebAuthn AuthenticatorTransport).
+// Passing the ones a credential reported back in allowCredentials lets the
+// browser go straight to "insert and touch your security key" (or NFC)
+// instead of opening its generic chooser, which on desktop leads with the
+// phone/QR option — where hardware-key users got lost.
+export const KNOWN_TRANSPORTS = ['usb', 'nfc', 'ble', 'hybrid', 'internal', 'smart-card'];
+
+export function cleanTransports (transports) {
+  if (!Array.isArray(transports)) return [];
+  return [...new Set(transports.filter(t => KNOWN_TRANSPORTS.includes(t)))];
+}
+
 // WebAuthn surfaces almost every ceremony failure as NotAllowedError — a
 // deliberately vague catch-all covering user cancel, timeout, no available
-// authenticator, and lost window focus. Name the likely causes (including the
-// two-prompt shape below) without over-claiming which one occurred; pass any
-// other error through unchanged.
-function translateCeremonyError (err) {
-  if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+// authenticator, a wrong PIN, and the document not having focus. Name the
+// likely causes for the step that failed without over-claiming which one
+// occurred; pass any other error through unchanged.
+export function translateCeremonyError (err, step = 'unlock') {
+  const name = err?.name;
+  if (name === 'NotAllowedError' || name === 'AbortError') {
+    const what = step === 'register'
+      ? 'Registering the passkey was cancelled or timed out.'
+      : 'The passkey step was cancelled or timed out.';
     return new Error(
-      'The passkey step was cancelled, timed out, or could not be completed. ' +
-      'Podkey prompts twice — once to register the passkey, once to derive the key — ' +
-      'so confirm every prompt. If it keeps failing, try a phone passkey or a ' +
-      'different security key.'
+      `${what} With a security key: insert it, enter its PIN if asked, and touch it when it flashes. ` +
+      'Keep this window in front while you do, then try again.'
     );
+  }
+  if (name === 'InvalidStateError') {
+    return new Error('This authenticator already holds a Podkey passkey. Use it to unlock, or choose a different key.');
+  }
+  if (name === 'NotSupportedError') {
+    return new Error('This authenticator cannot make the kind of passkey Podkey needs. Try a phone passkey or a newer security key.');
+  }
+  if (name === 'SecurityError') {
+    return new Error('The browser refused the passkey request for this extension. Reload Podkey and try again.');
   }
   return err instanceof Error ? err : new Error(String(err?.message || err));
 }
 
-export async function createPasskey (prfSalt, label = 'Podkey identity') {
-  if (!window.PublicKeyCredential || !navigator.credentials) {
+// userVerification is 'required' on both ceremonies, and must stay equal
+// between them: CTAP2 hmac-secret derives from a different per-credential
+// secret with and without user verification, so a key registered with UV but
+// asserted without it (or the reverse) returns a different PRF output — a
+// different Nostr identity, or an unwrap failure. For a security key, UV is
+// its PIN; the browser asks the person to set one if the key has none.
+export function creationOptions (prfSalt, label = 'Podkey identity') {
+  return {
+    challenge: randomBytes(32),
+    user: { id: randomBytes(32), name: 'podkey', displayName: label },
+    rp: { name: 'Podkey' },
+    // ES256 first (every FIDO2 key), then EdDSA and RS256 so an authenticator
+    // that offers only those (some Windows Hello TPMs: RS256) is not refused.
+    pubKeyCredParams: [
+      { type: 'public-key', alg: -7 },
+      { type: 'public-key', alg: -8 },
+      { type: 'public-key', alg: -257 }
+    ],
+    // Podkey stores the credentialId itself and always passes it via
+    // allowCredentials at unlock, so it never needs a discoverable (resident)
+    // credential. Requesting one adds cost, uses one of a security key's few
+    // resident slots and, on some TPM/security-key authenticators (e.g.
+    // tpm-fido), a makeCredential failure path — so discourage it.
+    // hmac-secret/PRF works fine on non-resident credentials.
+    authenticatorSelection: { residentKey: 'discouraged', requireResidentKey: false, userVerification: 'required' },
+    // Three minutes: long enough to find a key, set a first PIN and touch it.
+    timeout: 180000,
+    attestation: 'none',
+    extensions: { prf: { eval: { first: prfSalt } } }
+  };
+}
+
+export function assertionOptions (credentialId, prfSalt, transports = []) {
+  const id = typeof credentialId === 'string' ? fromBase64Url(credentialId) : credentialId;
+  const hint = cleanTransports(transports);
+  return {
+    challenge: randomBytes(32),
+    allowCredentials: [{ type: 'public-key', id, ...(hint.length ? { transports: hint } : {}) }],
+    userVerification: 'required',
+    timeout: 180000,
+    extensions: { prf: { eval: { first: prfSalt } } }
+  };
+}
+
+function requireWebAuthn () {
+  if (!globalThis.PublicKeyCredential || !globalThis.navigator?.credentials) {
     throw new Error('Passkeys are not supported by this browser');
   }
+}
+
+export async function createPasskey (prfSalt, label = 'Podkey identity') {
+  requireWebAuthn();
   let credential;
   try {
-    credential = await navigator.credentials.create({ publicKey: {
-      challenge: randomBytes(32),
-      user: { id: randomBytes(32), name: 'podkey', displayName: label },
-      rp: { name: 'Podkey' },
-      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-      // Podkey stores the credentialId itself and always passes it via
-      // allowCredentials at unlock, so it never needs a discoverable (resident)
-      // credential. Requesting one adds cost and, on some TPM/security-key
-      // authenticators (e.g. tpm-fido), a makeCredential failure path — so
-      // discourage it. hmac-secret/PRF works fine on non-resident credentials.
-      authenticatorSelection: { residentKey: 'discouraged', userVerification: 'required' },
-      timeout: 120000,
-      attestation: 'none',
-      extensions: { prf: { eval: { first: prfSalt } } }
-    } });
+    credential = await navigator.credentials.create({ publicKey: creationOptions(prfSalt, label) });
   } catch (err) {
-    throw translateCeremonyError(err);
+    throw translateCeremonyError(err, 'register');
   }
   if (!credential) throw new Error('Passkey creation was cancelled');
   // Definitive PRF-support signal: with prf requested at creation, the client
@@ -139,22 +196,18 @@ export async function createPasskey (prfSalt, label = 'Podkey identity') {
   if (!prf || prf.enabled !== true) {
     throw new Error(PRF_UNSUPPORTED_MESSAGE);
   }
-  return { credentialId: toBase64Url(new Uint8Array(credential.rawId)) };
+  let transports = [];
+  try { transports = cleanTransports(credential.response?.getTransports?.()); } catch { /* only a hint */ }
+  return { credentialId: toBase64Url(new Uint8Array(credential.rawId)), transports };
 }
 
-export async function getPasskeyPrf (credentialId, prfSalt) {
-  const id = typeof credentialId === 'string' ? fromBase64Url(credentialId) : credentialId;
+export async function getPasskeyPrf (credentialId, prfSalt, transports = []) {
+  requireWebAuthn();
   let assertion;
   try {
-    assertion = await navigator.credentials.get({ publicKey: {
-      challenge: randomBytes(32),
-      allowCredentials: [{ type: 'public-key', id }],
-      userVerification: 'required',
-      timeout: 120000,
-      extensions: { prf: { eval: { first: prfSalt } } }
-    } });
+    assertion = await navigator.credentials.get({ publicKey: assertionOptions(credentialId, prfSalt, transports) });
   } catch (err) {
-    throw translateCeremonyError(err);
+    throw translateCeremonyError(err, 'unlock');
   }
   const output = assertion?.getClientExtensionResults().prf?.results?.first;
   if (!output) throw new Error(PRF_UNSUPPORTED_MESSAGE);
