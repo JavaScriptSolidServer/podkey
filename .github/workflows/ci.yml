@@ -38,11 +38,16 @@ jobs:
       # folder once, so the download unzips straight to the folder Chrome loads
       # (uploading a .zip would hand people a zip inside a zip).
       - name: Stage extension (unpacked folder)
+        env:
+          # on a pull request, the PR's own head (github.sha there is a temporary merge commit)
+          BUILD_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           mkdir -p dist/podkey
           # vendor/ holds the sidestr engine the spend window imports (MV3 forbids remote code)
           cp -r manifest.json src popup vendor $([ -d icons ] && echo icons) LICENSE PRIVACY.md dist/podkey/
           find dist/podkey -name '*.test.js' -delete
+          # the commit this package was built from, shown beside the version in the popup
+          printf '{"commit":"%s","built":"%s"}\n' "$BUILD_COMMIT" "$(date -u +%Y-%m-%dT%H:%MZ)" > dist/podkey/build.json
 
       - name: Check the folder holds every file the extension loads
         run: |
