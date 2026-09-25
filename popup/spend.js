@@ -266,7 +266,7 @@ $('reject').addEventListener('click', () => {
 function askToTurnOn () {
   return new Promise((resolve) => {
     $('loading').hidden = true; $('optIn').hidden = false;
-    $('optInYes').focus();
+    $('optInNo').focus(); // the safe choice is the default, as Deny is elsewhere
     $('optInYes').onclick = () => { $('optIn').hidden = true; $('loading').hidden = false; resolve(true); };
     $('optInNo').onclick = () => resolve(false);
   });
