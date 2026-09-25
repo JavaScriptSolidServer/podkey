@@ -103,6 +103,24 @@ script.onerror = function () {
 };
 (document.head || document.documentElement).appendChild(script);
 
+// Mirror the sidechain-spends setting onto <html data-podkey-sidestr="on|off">,
+// which window.nostr.sidestr.enabled reads, and keep it current. Guarded: an
+// orphaned context or a test stub may have no storage API.
+function mirrorSidestrSetting (settingsValue) {
+  const on = settingsValue && typeof settingsValue === 'object' && settingsValue.enabled === true;
+  document.documentElement?.setAttribute?.('data-podkey-sidestr', on ? 'on' : 'off');
+}
+try {
+  chrome.storage?.local?.get?.(['podkey_sidestr', 'podkey_sidestr_signers']).then((got) => {
+    // 0.0.9 pins count as turned on (src/sidestr/settings.js normalize)
+    const legacy = got?.podkey_sidestr_signers && Object.keys(got.podkey_sidestr_signers).length > 0;
+    mirrorSidestrSetting(got?.podkey_sidestr ?? (legacy ? { enabled: true } : null));
+  }).catch(() => {});
+  chrome.storage?.onChanged?.addListener?.((changes, area) => {
+    if (area === 'local' && changes.podkey_sidestr) mirrorSidestrSetting(changes.podkey_sidestr.newValue);
+  });
+} catch { /* no storage here: the attribute stays unset, which reads as off */ }
+
 // Allowed message types that can be forwarded to the background script
 const ALLOWED_TYPES = new Set([
   'GET_PUBLIC_KEY',

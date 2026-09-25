@@ -39,7 +39,7 @@ describe('provider surface (honest feature-detection)', () => {
     assert.equal(Object.isFrozen(nostr.sidestr), true);
     assert.equal(nostr.sidestr.version, 1);
     assert.equal(nostr.sidestr.name, 'Podkey');
-    assert.deepEqual(Object.keys(nostr.sidestr).sort(), ['name', 'signTransaction', 'version']);
+    assert.deepEqual(Object.keys(nostr.sidestr).sort(), ['enabled', 'name', 'signTransaction', 'version']);
     assert.equal(typeof nostr.sidestr.signTransaction, 'function');
   });
 
@@ -161,6 +161,20 @@ describe('provider request wiring (podkey-request CustomEvent)', () => {
     assert.equal(req.tx, '0200');
     assert.equal('extra' in req, false);
     assert.deepEqual(await resP, { tx: 'ab', txid: 'c'.repeat(64) });
+  });
+
+  it('sidestr.enabled reads the setting Podkey mirrors onto <html>, live', () => {
+    const had = global.document;
+    try {
+      global.document = { documentElement: { dataset: {} } };
+      assert.equal(nostr.sidestr.enabled, false, 'off until turned on');
+      global.document.documentElement.dataset.podkeySidestr = 'on';
+      assert.equal(nostr.sidestr.enabled, true);
+      global.document.documentElement.dataset.podkeySidestr = 'off';
+      assert.equal(nostr.sidestr.enabled, false);
+    } finally {
+      global.document = had;
+    }
   });
 
   it('sidestr.signTransaction rejects a non-object request with code invalid', async () => {

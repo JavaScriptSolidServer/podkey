@@ -702,6 +702,11 @@ input:focus-visible + .slider {
   color: var(--text-faint);
 }
 
+/* ---- Sidechain chains in use (under the setting) ---- */
+.sidestr-chains {
+  margin-top: 8px;
+}
+
 /* ---- Version: quiet, on every screen ---- */
 .version {
   text-align: center;

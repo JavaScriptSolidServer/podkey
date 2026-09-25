@@ -53,7 +53,7 @@ export async function loadLib (base = new URL('../../vendor/sidestr/', import.me
  *
  * @returns {Promise<{ex, signer, announced, mirror, parent, mirrorNote}>}
  */
-export async function openChain ({ lib, chainId, pinned = null, relays = RELAYS, fetchJson, loadJson, onProgress = () => {} }) {
+export async function openChain ({ lib, chainId, pinned = null, relays = RELAYS, fetchJson, loadJson, store = null, onProgress = () => {} }) {
   const { announce, explorer, parents, nostr } = lib;
   const verify = nostr.verifyNostrEvent;
   onProgress(`Asking ${relays.length} relays where ${chainId} is`);
@@ -76,7 +76,10 @@ export async function openChain ({ lib, chainId, pinned = null, relays = RELAYS,
   if (parent.mainnet) throw new SpendError('unsupported', `${chainId} sits beside ${parent.label}. Podkey signs only for chains beside test networks for now.`);
 
   onProgress(`Checking every block of ${chainId}`);
-  const ex = new explorer.Explorer(found.mirror, loadJson ? { loadJson } : {});
+  // With a store the explorer resumes from the state it validated last time and
+  // checks only the blocks since; it drops that state itself when the mirror's
+  // block at the saved height has another hash (a reset chain).
+  const ex = new explorer.Explorer(found.mirror, { ...(loadJson ? { loadJson } : {}), ...(store ? { store } : {}) });
   try {
     await ex.open();
   } catch (e) {
@@ -91,10 +94,18 @@ export async function openChain ({ lib, chainId, pinned = null, relays = RELAYS,
   const tip = ex.tip();
   const judged = announce.judgeMirror({ announced: found.tip, height: tip.height, headerHex: ex.headerHex(tip.height) });
   if (judged.ok === false) throw new SpendError('unavailable', `The mirror contradicts ${chainId}'s signer: ${judged.note}`);
-  return { ex, signer: found.tip.pubkey, announced: found.tip, mirror: found.mirror, parent, mirrorNote: judged.note };
+  return { ex, signer: found.tip.pubkey, announced: found.tip, mirror: found.mirror, parent, mirrorNote: judged.note, fromCache: ex.fromCache ?? null };
 }
 
 const outpoint = (inp) => `${inp.prevout.txid}:${inp.prevout.vout}`;
+
+/** Bumped when a saved asset view could be wrong. */
+export const ASSET_CACHE_VERSION = 1;
+/** The cache key an asset view is saved under, per chain. */
+export const assetCacheKey = (chainId) => `assets:${chainId}`;
+
+/** Thrown when a saved asset view does not match the explorer's resumed state. */
+export class CacheMismatch extends Error {}
 
 /**
  * What each unspent output carries (SPEC 12). On a chain that names the
@@ -102,17 +113,32 @@ const outpoint = (inp) => `${inp.prevout.txid}:${inp.prevout.vout}`;
  * the holders' reading of the same records: a transaction that breaks the rule
  * keeps its spends and carries nothing, so what it tried to move is destroyed
  * (the view sidestr-core's AssetView takes, so the two agree).
+ *
+ * `cached` is a view saved by serializeView. When the explorer resumed from its
+ * own saved state (ex.fromCache), the view resumes from `cached` at that same
+ * height and block hash and reads only the blocks since; anything else throws
+ * CacheMismatch, and the caller validates in full.
  */
-export function assetView (ex, lib) {
+export function assetView (ex, lib, { cached = null } = {}) {
   const { assets } = lib;
   if (ex.rules?.assets) {
     const r = ex.rules.assets;
     return { mode: 'rule', carried: r.carried, issued: r.issued, check: r.check, CarryView: assets.CarryView };
   }
   const ov = assets.assetsOverlay(ex.chain);
-  for (let h = 0; h < ex.blocks.length; h++) {
+  let start = 0;
+  if (ex.fromCache != null) {
+    const at = ex.blocks[ex.fromCache];
+    if (!cached || cached.v !== ASSET_CACHE_VERSION || cached.chain !== ex.chain.id || cached.height !== ex.fromCache || !at || cached.hash !== at.hash) {
+      throw new CacheMismatch(`No saved asset view for ${ex.chain.id} at ${ex.fromCache}`);
+    }
+    for (const [k, m] of cached.carried) ov.carried.set(k, new Map(m));
+    for (const [id, i] of cached.issued) ov.issued.set(id, i);
+    start = ex.fromCache + 1;
+  }
+  for (let h = start; h < ex.blocks.length; h++) {
     const b = ex.blocks[h];
-    if (!b?.block) throw new SpendError('unavailable', `Block ${h} is not in memory; the asset view needs every block.`);
+    if (!b?.block) throw new SpendError('unavailable', `Block ${h} is not in memory; the asset view needs every block since the last visit.`);
     const view = new assets.CarryView(ov.carried);
     b.block.transactions.forEach((tx, i) => {
       if (i === 0) return; // a coinbase carries nothing
@@ -125,6 +151,17 @@ export function assetView (ex, lib) {
     for (const k of view.spent.keys()) ov.carried.delete(k);
   }
   return { mode: 'view', carried: ov.carried, issued: ov.issued, check: ov.check, CarryView: assets.CarryView };
+}
+
+/** A holders' view, as JSON to save at the explorer's tip; null for a chain whose rule holds the state. */
+export function serializeView (view, ex) {
+  if (view.mode !== 'view') return null;
+  const tip = ex.tip();
+  return JSON.stringify({
+    v: ASSET_CACHE_VERSION, chain: ex.chain.id, height: tip.height, hash: tip.hash,
+    carried: [...view.carried].map(([k, m]) => [k, [...m]]),
+    issued: [...view.issued]
+  });
 }
 
 const addAll = (into, from) => { for (const [a, n] of from ?? []) into.set(a, (into.get(a) ?? 0) + n); return into; };

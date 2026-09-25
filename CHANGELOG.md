@@ -5,6 +5,28 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.10] - 2026-09-25
+
+### Changed
+
+- **Sidechain spends are opt-in.** They are off until you turn them on, in the
+  popup's settings or in the spend window the first time a site asks; declining
+  answers the site with `code: 'unsupported'`. The settings list the chains in
+  use with the signer Podkey settled on for each, and **Forget** drops a chain's
+  signer and its saved state; turning spends off forgets every chain. Signer
+  pins from 0.0.9 carry over and count as turned on.
+- `window.nostr.sidestr.enabled` says whether spends are on, so a page can word
+  its own buttons. `signTransaction` is present either way.
+
+### Added
+
+- **Spends open quickly.** Podkey keeps each chain's validated state (coins, the
+  last headers and what each coin carries) and the next spend checks only the
+  blocks since: on `sidestr:dreamlab`, 545 blocks took 5.9 s to validate the
+  first time and 0.3 s after. A saved state whose block hash no longer matches
+  the mirror (a reset chain) is dropped and every block is checked again; the
+  spend window says which it did.
+
 ## [0.0.9] - 2026-09-24
 
 ### Added

@@ -2,7 +2,7 @@
 
 > Browser extension for **did:nostr** and **Solid** authentication
 
-[![Version](https://img.shields.io/badge/version-0.0.9-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)
+[![Version](https://img.shields.io/badge/version-0.0.10-blue.svg)](https://github.com/JavaScriptSolidServer/podkey/actions/workflows/ci.yml?query=branch%3Amain+is%3Asuccess)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE)
 [![NIP-07](https://img.shields.io/badge/NIP--07-compatible-purple.svg)](https://github.com/nostr-protocol/nips/blob/master/07.md)
 [![Test Page](https://img.shields.io/badge/test--page-live-brightgreen)](https://javascriptsolidserver.github.io/podkey/test-page/)
@@ -153,6 +153,14 @@ destroys. It asks every time, whatever else the site is trusted for, and signs
 only after you confirm. It takes chains beside test networks only for now, and
 remembers each chain's signer on the first spend so that a different signer
 announcing the same id is refused.
+
+Sidechain spends are **off until you turn them on**, in Podkey's settings or in
+the spend window the first time a site asks (declining answers the site with
+`code: 'unsupported'`). `window.nostr.sidestr.enabled` tells a page which state
+it is in, so it can word its own buttons; the method is there either way.
+Podkey keeps each chain's validated state, so the next spend checks only the
+blocks since; the settings list the chains in use, and **Forget** drops a
+chain's signer and its saved state. Turning spends off forgets every chain.
 
 ## Architecture
 
