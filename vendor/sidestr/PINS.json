@@ -33,7 +33,7 @@
     {
       "name": "spec",
       "repo": "https://github.com/sidestr/spec",
-      "commit": "373d3eb6accd163f418e8a813052f1516a942bb3",
+      "commit": "fa86dac83d47b8f70195132e91e9dc083e1d9228",
       "files": {
         "siding/lib/announce.mjs": "67a4e18d13eaa234fb4e9ddb5c3a275140fb33055e60e1d4150e4b0f23b12862",
         "siding/lib/block.mjs": "3f9de6866080ff788aab6e898be7744c12988636f9137ec1eeddcfa66d57ca48",
@@ -44,7 +44,7 @@
         "siding/lib/overlays/index.mjs": "58cccd190238b349c6f7815aefe1e2c4a337e8e770b060e06710824e8700f834",
         "siding/lib/overlays/pool.mjs": "c86584bac7f4ff9c6af41f76dd6abd52c0a9e49bce23c9a5df218729377a0f04",
         "siding/lib/parents.mjs": "a5e697a61e25c32a0df66def2809bac284247c777d5fa32647c08cfd249548ca",
-        "siding/lib/records.mjs": "8afa474cf154d8db6442a269deb30a83e67e8cc36e295c03c47a67c0c934ccca",
+        "siding/lib/records.mjs": "d314c419637122c450e3b3f1980d58c2837ed5e6b3b0e5d9b1751371ae3f2c51",
         "siding/lib/txsign.mjs": "5f2af06056e30e6c0997c917ba05bfcce305b947a80df1c242a6b04931039875",
         "LICENSE": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
       },

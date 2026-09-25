@@ -54,4 +54,12 @@ describe('vendored sidestr engine', () => {
     const { evmOverlay } = await import('../vendor/sidestr/spec/siding/lib/overlays/evm.mjs');
     assert.throws(() => evmOverlay({ id: 'sidestr:x' }), (e) => e.code === 'unsupported');
   });
+
+  it('the vendored records reader refuses a push whose length is not its data (sidestr/spec#17)', async () => {
+    const { recordText } = await import('../vendor/sidestr/spec/siding/lib/records.mjs');
+    const hx = (t) => Buffer.from(t).toString('hex');
+    assert.equal(recordText('6a03' + hx('tally:x')), null, 'bytes after the push');
+    assert.equal(recordText('6a07' + hx('abc')), null, 'bytes missing');
+    assert.equal(recordText('6a07' + hx('tally:x')), 'tally:x');
+  });
 });

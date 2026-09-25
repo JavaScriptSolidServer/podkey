@@ -5,6 +5,17 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.11] - 2026-09-25
+
+### Fixed
+
+- **sidestr records are read by their push length.** The vendored spec lib moves
+  from `373d3eb` to `@sidestr/spec` 0.0.6 (`fa86dac`), whose `recordText`
+  compares a push's declared length with its data again (sidestr/spec#17): a
+  script that pushed `tal` with `ly:x` after the push read as the record
+  `tally:x`. The spend window's asset view and record display now read records
+  exactly as validators do. Only `records.mjs` changed in Podkey's vendored set.
+
 ## [0.0.10] - 2026-09-25
 
 ### Changed
