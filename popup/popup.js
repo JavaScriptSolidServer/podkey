@@ -26,8 +26,33 @@ let currentScreen = 'setup';
 // (cancel or closing the window) leaves no partial state anywhere.
 let pendingDerivedIdentity = null;
 
+/**
+ * Show the version quietly at the foot of every screen: the manifest's version,
+ * plus the commit CI built it from when the package carries build.json (a
+ * source build has none and shows the version alone). Every CI build of main
+ * shares a version, so the commit is what tells two downloads apart.
+ */
+async function showVersion () {
+  const el = document.getElementById('version');
+  if (!el) return;
+  const version = chrome.runtime.getManifest().version;
+  el.textContent = `v${version}`;
+  el.title = `Podkey ${version}`;
+  try {
+    const res = await fetch(chrome.runtime.getURL('build.json'));
+    if (!res.ok) return;
+    const build = await res.json();
+    if (typeof build.commit !== 'string' || !/^[0-9a-f]{7,40}$/.test(build.commit)) return;
+    el.textContent = `v${version} · ${build.commit.slice(0, 7)}`;
+    el.title = `Podkey ${version}, built from ${build.commit}${build.built ? ` on ${build.built}` : ''}`;
+  } catch {
+    // no build.json: a source build, version alone
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  showVersion();
   await checkKeypairStatus();
   setupEventListeners();
 

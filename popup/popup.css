@@ -702,6 +702,20 @@ input:focus-visible + .slider {
   color: var(--text-faint);
 }
 
+/* ---- Version: quiet, on every screen ---- */
+.version {
+  text-align: center;
+  padding: 6px 0 2px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  user-select: text;
+}
+
+.version:empty {
+  display: none;
+}
+
 /* ---- Scrollbars ---- */
 .trusted-list::-webkit-scrollbar,
 .event-preview::-webkit-scrollbar {
