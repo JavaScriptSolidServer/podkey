@@ -13,6 +13,7 @@ import {
   wrapPrivateKey
 } from '../src/passkey.js';
 import { hexToNsec } from '../src/keyformat.js';
+import * as sidestrSettings from '../src/sidestr/settings.js';
 
 // Set DEBUG=true to log identity material (public key / DID) for local
 // debugging. Off by default so the popup never prints the user's pubkey.
@@ -246,6 +247,8 @@ async function showMainScreen(status) {
   const { podkey_auto_sign: autoSign = false } = await chrome.storage.local.get(['podkey_auto_sign']);
   document.getElementById('autoSignToggle').checked = autoSign;
 
+  await loadSidestrSettings();
+
   const config = await getPasskeyConfig();
   const passkeyBtn = document.getElementById('enablePasskeyBtn');
   passkeyBtn.hidden = config?.mode === 'derived';
@@ -294,6 +297,7 @@ function setupEventListeners() {
   // Main screen
   document.getElementById('copyBtn').addEventListener('click', handleCopy);
   document.getElementById('autoSignToggle').addEventListener('change', handleAutoSignToggle);
+  document.getElementById('sidestrToggle').addEventListener('change', handleSidestrToggle);
   document.getElementById('exportBtn').addEventListener('click', handleExport);
   document.getElementById('lockBtn').addEventListener('click', handleLock);
   // Same wipe-and-return-to-setup action as the unlock screen's link, surfaced
@@ -648,6 +652,45 @@ async function handleAutoSignToggle(event) {
   });
 
   console.log('[Podkey] Auto-sign:', enabled);
+}
+
+/**
+ * Sidechain spends (sidestr): off until turned on, here or in the spend window
+ * when a site first asks. Lists the chains in use with the signer Podkey
+ * settled on for each; Forget drops a chain's pin and cached state.
+ */
+async function loadSidestrSettings() {
+  const s = await sidestrSettings.load(chrome.storage.local);
+  document.getElementById('sidestrToggle').checked = s.enabled;
+  const listEl = document.getElementById('sidestrChains');
+  const ids = Object.keys(s.chains).sort();
+  listEl.replaceChildren();
+  listEl.hidden = !s.enabled || ids.length === 0;
+  for (const chainId of ids) {
+    const row = document.createElement('div');
+    row.className = 'trusted-item';
+    const label = document.createElement('span');
+    label.className = 'trusted-origin';
+    const signer = s.chains[chainId].signer;
+    label.textContent = `${chainId} · signer ${signer.slice(0, 8)}…`;
+    label.title = `${chainId}, signer ${signer}`;
+    const btn = document.createElement('button');
+    btn.className = 'btn-remove';
+    btn.textContent = 'Forget';
+    btn.addEventListener('click', async () => {
+      await sidestrSettings.forgetChain(chrome.storage.local, chainId);
+      await loadSidestrSettings();
+    });
+    row.appendChild(label);
+    row.appendChild(btn);
+    listEl.appendChild(row);
+  }
+}
+
+async function handleSidestrToggle(event) {
+  if (event.target.checked) await sidestrSettings.enable(chrome.storage.local);
+  else await sidestrSettings.disable(chrome.storage.local);
+  await loadSidestrSettings();
 }
 
 /**

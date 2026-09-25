@@ -294,6 +294,17 @@
           </div>
           <button id="enablePasskeyBtn" class="btn-small" type="button">Set up</button>
         </div>
+        <div class="settings-item settings-separated">
+          <div class="settings-text">
+            <div class="settings-label">Sidechain spends</div>
+            <div class="settings-desc">Let sites ask Podkey to sign spends on sidestr chains (test coins). Podkey shows every spend and asks each time. Turning this off forgets every chain.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="sidestrToggle" aria-label="Sidechain spends" />
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div id="sidestrChains" class="trusted-list sidestr-chains" hidden></div>
       </div>
 
       <div class="section">

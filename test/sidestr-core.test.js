@@ -179,6 +179,53 @@ describe('assets (SPEC 12)', () => {
   });
 });
 
+describe('the asset view resumes from a saved state', () => {
+  // three blocks: an issue, a transfer onward, then a further transfer
+  function chainOf3 () {
+    const rec = (t) => ({ value: 0, scriptPubKey: lib.records.recordScript(t) });
+    const issue = { version: 2, lockTime: 0, witness: [], inputs: [input(T(5))], outputs: [{ value: 330, scriptPubKey: me }, rec('issue:DREAM:0'), rec('tally:self:0=1000')] };
+    const id = engine.k.codec.txid(issue);
+    const move = { version: 2, lockTime: 0, witness: [], inputs: [input(id)], outputs: [{ value: 330, scriptPubKey: stranger }, { value: 330, scriptPubKey: me }, rec(`tally:${id}:0=100,1=900`)] };
+    const moveId = engine.k.codec.txid(move);
+    const again = { version: 2, lockTime: 0, witness: [], inputs: [input(moveId, 1)], outputs: [{ value: 330, scriptPubKey: me }, rec(`tally:${id}:0=900`)] };
+    const againId = engine.k.codec.txid(again);
+    const blocks = [
+      { hash: 'h0', block: { transactions: [{}, issue] }, txids: ['c0', id] },
+      { hash: 'h1', block: { transactions: [{}, move] }, txids: ['c1', moveId] },
+      { hash: 'h2', block: { transactions: [{}, again] }, txids: ['c2', againId] }
+    ];
+    return { blocks, id, moveId, againId };
+  }
+  const exAt = (blocks, fromCache = null) => ({ ...makeEx({ blocks, height: blocks.length - 1 }), fromCache, tip: () => ({ height: blocks.length - 1, hash: blocks[blocks.length - 1].hash }) });
+  const flat = (v) => JSON.stringify([...v.carried].map(([k, m]) => [k, [...m]]).sort());
+
+  it('resuming at block 1 reaches exactly the state a full replay does', () => {
+    const { blocks, id } = chainOf3();
+    const full = core.assetView(exAt(blocks), lib);
+    const saved = core.serializeView(core.assetView(exAt(blocks.slice(0, 2)), lib), exAt(blocks.slice(0, 2)));
+    // the explorer resumed at 1: blocks 0 and 1 are placeholders, only block 2 is in memory
+    const resumedBlocks = [{ hash: 'h0' }, { hash: 'h1', cached: true }, blocks[2]];
+    const resumed = core.assetView(exAt(resumedBlocks, 1), lib, { cached: JSON.parse(saved) });
+    assert.equal(flat(resumed), flat(full));
+    assert.equal(resumed.issued.get(id).ticker, 'DREAM');
+  });
+
+  it('refuses a saved view from another height or another block, so the caller checks in full', () => {
+    const { blocks } = chainOf3();
+    const saved = JSON.parse(core.serializeView(core.assetView(exAt(blocks.slice(0, 2)), lib), exAt(blocks.slice(0, 2))));
+    const resumedBlocks = [{ hash: 'h0' }, { hash: 'h1', cached: true }, blocks[2]];
+    assert.throws(() => core.assetView(exAt(resumedBlocks, 1), lib, { cached: null }), core.CacheMismatch);
+    assert.throws(() => core.assetView(exAt(resumedBlocks, 1), lib, { cached: { ...saved, hash: 'other' } }), core.CacheMismatch);
+    assert.throws(() => core.assetView(exAt(resumedBlocks, 1), lib, { cached: { ...saved, height: 0 } }), core.CacheMismatch);
+    assert.throws(() => core.assetView(exAt(resumedBlocks, 1), lib, { cached: { ...saved, v: 99 } }), core.CacheMismatch);
+  });
+
+  it('a chain whose rule holds the state saves nothing', () => {
+    const ex = { ...makeEx(), rules: { assets: { carried: new Map(), issued: new Map(), check: () => ({ ok: true, out: new Map() }) } } };
+    assert.equal(core.serializeView(core.assetView(ex, lib), ex), null);
+  });
+});
+
 describe('formatAsset', () => {
   it('formats whole and decimal units', () => {
     assert.equal(core.formatAsset(1_000_000, 0), '1,000,000');

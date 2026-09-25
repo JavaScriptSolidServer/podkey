@@ -29,6 +29,21 @@
         <code class="origin-badge" id="origin">…</code>
       </section>
 
+      <!-- 0. Sidechain spends are off until the person turns them on -->
+      <section id="optIn" class="spend-card" hidden>
+        <div class="spend-eyebrow">Sidechain spends are off</div>
+        <p class="failure-text"><code id="optInOrigin"></code> wants Podkey to sign a spend on a sidestr chain. Turn sidechain spends on to see it.</p>
+        <ul class="opt-in-list">
+          <li>Sites can then ask Podkey to sign spends. Podkey shows you every spend and asks each time; nothing is signed without you.</li>
+          <li>Podkey reads and checks each chain itself, and keeps what it checked so the next spend opens quickly.</li>
+          <li>Test coins only for now. You can turn this off in Podkey's settings, which forgets every chain.</li>
+        </ul>
+        <div class="btn-row">
+          <button class="btn btn-deny" id="optInNo" type="button">Not now</button>
+          <button class="btn btn-primary" id="optInYes" type="button">Turn on and review</button>
+        </div>
+      </section>
+
       <!-- 1. Podkey reads the chain itself -->
       <section id="loading" class="spend-card" aria-live="polite">
         <div class="spend-eyebrow">Podkey is checking <span id="loadingChain">the chain</span> itself</div>

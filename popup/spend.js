@@ -12,8 +12,10 @@
  */
 
 import * as core from '../src/sidestr/core.js';
+import * as settings from '../src/sidestr/settings.js';
 
-const PINS_KEY = 'podkey_sidestr_signers';
+const storage = chrome.storage.local;
+const cache = settings.cacheStore(storage);
 const PROFILE_KIND = 0;
 const $ = (id) => document.getElementById(id);
 const id = new URLSearchParams(location.search).get('id');
@@ -116,7 +118,11 @@ function render ({ req, opened, reviewed, pinned, lib }) {
 
   $('chainId').textContent = ex.chain.id;
   $('network').textContent = parent.mainnet ? parent.label : `Test coins · ${parent.label}`;
-  $('chainCheck').textContent = `✓ ${(ex.tip().height + 1).toLocaleString('en-GB')} blocks checked by Podkey · ${mirrorNote}`;
+  const blocks = ex.tip().height + 1;
+  const resumed = opened.fromCache;
+  $('chainCheck').textContent = resumed == null
+    ? `✓ ${blocks.toLocaleString('en-GB')} blocks checked by Podkey · ${mirrorNote}`
+    : `✓ ${(blocks - resumed - 1).toLocaleString('en-GB')} new blocks checked by Podkey, ${(resumed + 1).toLocaleString('en-GB')} from your last visit · ${mirrorNote}`;
   $('signer').textContent = short(signer, 8, 8);
   $('signer').title = signer;
   const pin = $('signerPin');
@@ -211,11 +217,7 @@ async function doSign ({ req, opened, reviewed, pinned, lib }) {
   try {
     const { signatures } = await send({ type: 'SIDESTR_SIGN_DIGESTS', id, digests: reviewed.sighashes.map((s) => s.digest) });
     const result = core.finish({ ex: opened.ex, lib, reviewed, signatures, pub: req.pub });
-    if (!pinned) {
-      const pins = (await chrome.storage.local.get(PINS_KEY))[PINS_KEY] ?? {};
-      pins[req.chain] = opened.signer;
-      await chrome.storage.local.set({ [PINS_KEY]: pins });
-    }
+    if (!pinned) await settings.pinChain(storage, req.chain, opened.signer);
     finishWith({ result });
     $('review').hidden = true; $('countdownWrap').hidden = true; $('signed').hidden = false;
     setTimeout(() => window.close(), 1200);
@@ -247,9 +249,7 @@ function fail (e) {
 $('forgetAck').addEventListener('change', () => { $('forget').disabled = !$('forgetAck').checked; });
 $('forget').addEventListener('click', async () => {
   const req = await send({ type: 'SIDESTR_REQUEST', id });
-  const pins = (await chrome.storage.local.get(PINS_KEY))[PINS_KEY] ?? {};
-  delete pins[req.chain];
-  await chrome.storage.local.set({ [PINS_KEY]: pins });
+  await settings.forgetChain(storage, req.chain);
   $('failure').hidden = true; $('loading').hidden = false;
   main();
 });
@@ -259,7 +259,41 @@ $('reject').addEventListener('click', () => {
   window.close();
 });
 
+// ---- opt-in ---------------------------------------------------------------
+
+// Spends are off until the person turns them on. A site that asks while they
+// are off gets this, in Podkey's own window, rather than a dead end.
+function askToTurnOn () {
+  return new Promise((resolve) => {
+    $('loading').hidden = true; $('optIn').hidden = false;
+    $('optInNo').focus(); // the safe choice is the default, as Deny is elsewhere
+    $('optInYes').onclick = () => { $('optIn').hidden = true; $('loading').hidden = false; resolve(true); };
+    $('optInNo').onclick = () => resolve(false);
+  });
+}
+
 // ---- main -----------------------------------------------------------------
+
+// Open the chain, from the saved state where there is one; a saved asset view
+// that does not match the explorer's saved state means both are dropped and
+// every block is checked again.
+async function openWithCache (lib, chainId, pinned) {
+  const progress = (m) => { if (/^Checking/.test(m)) step('stepCheck'); };
+  let opened = await core.openChain({ lib, chainId, pinned, store: cache, onProgress: progress });
+  let view;
+  try {
+    const raw = opened.fromCache == null ? null : await cache.get(core.assetCacheKey(chainId));
+    view = core.assetView(opened.ex, lib, { cached: raw ? JSON.parse(raw) : null });
+  } catch (e) {
+    if (!(e instanceof core.CacheMismatch) && !(e instanceof SyntaxError)) throw e;
+    await settings.clearCaches(storage, chainId);
+    opened = await core.openChain({ lib, chainId, pinned, store: cache, onProgress: progress });
+    view = core.assetView(opened.ex, lib);
+  }
+  const saved = core.serializeView(view, opened.ex);
+  if (saved && opened.ex.cacheable) await cache.set(core.assetCacheKey(chainId), saved);
+  return { opened, view };
+}
 
 async function main () {
   try {
@@ -267,15 +301,21 @@ async function main () {
     $('origin').textContent = req.origin;
     $('loadingChain').textContent = req.chain;
     startCountdown(req.expiresAt);
+    let s = await settings.load(storage);
+    if (!s.enabled) {
+      $('optInOrigin').textContent = req.origin;
+      if (!(await askToTurnOn())) {
+        finishWith({ error: { code: 'unsupported', message: 'Sidechain spends are turned off in Podkey' } });
+        window.close();
+        return;
+      }
+      s = await settings.enable(storage);
+    }
     step('stepFind');
     const lib = await core.loadLib();
-    const pinned = ((await chrome.storage.local.get(PINS_KEY))[PINS_KEY] ?? {})[req.chain] ?? null;
-    const opened = await core.openChain({
-      lib, chainId: req.chain, pinned,
-      onProgress: (m) => { if (/^Checking/.test(m)) step('stepCheck'); }
-    });
+    const pinned = s.chains[req.chain]?.signer ?? null;
+    const { opened, view } = await openWithCache(lib, req.chain, pinned);
     step('stepReview');
-    const view = core.assetView(opened.ex, lib);
     const reviewed = core.review({ ex: opened.ex, lib, view, pub: req.pub, txHex: req.tx });
     render({ req, opened, reviewed, pinned, lib });
   } catch (e) {

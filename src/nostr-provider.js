@@ -109,6 +109,17 @@
       name: 'Podkey',
 
       /**
+       * Whether sidechain spends are turned on in Podkey. They are off until the
+       * person turns them on; while off, signTransaction still works, and its
+       * first call asks, in Podkey's own window. Read live: the content script
+       * mirrors the setting onto <html data-podkey-sidestr>. A page that forges
+       * the attribute only misleads itself; the spend window checks the setting.
+       */
+      get enabled () {
+        return globalThis.document?.documentElement?.dataset?.podkeySidestr === 'on';
+      },
+
+      /**
        * @param {{chain: string, tx: string}} request - chain id and the
        *   transaction as hex (any witness is ignored and replaced)
        * @returns {Promise<{tx: string, txid: string}>} the signed transaction
