@@ -47,7 +47,7 @@ export const PINS = [
   {
     name: 'spec',
     repo: 'https://github.com/sidestr/spec',
-    commit: '373d3eb6accd163f418e8a813052f1516a942bb3',
+    commit: 'fa86dac83d47b8f70195132e91e9dc083e1d9228',
     // what explorer.mjs imports from `${sidestr}`, plus what the spend window uses
     entries: ['siding/lib/parents.mjs', 'siding/lib/overlay.mjs', 'siding/lib/overlays/index.mjs', 'siding/lib/txsign.mjs', 'siding/lib/announce.mjs', 'siding/lib/records.mjs', 'siding/lib/overlays/assets.mjs'],
     documents: [],
