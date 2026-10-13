@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - main
+  # Manual runs, so a fresh podkey-extension artefact can be produced without a
+  # code change (CI artefacts expire after 90 days).
+  workflow_dispatch:
 
 permissions:
   contents: read
