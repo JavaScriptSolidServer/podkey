@@ -108,3 +108,54 @@ export function setAuthorizationOnOptions (options, value) {
   }
   return options.headers;
 }
+
+/**
+ * Should a fetch that failed outright be tried again without Podkey's
+ * NIP-98 header (#33)? Adding `Authorization` makes a cross-origin request
+ * "non-simple", so the browser sends a CORS preflight first. Static hosts
+ * such as GitHub Pages don't answer preflights, and the fetch rejects with a
+ * TypeError before any response, so a public file the page could read
+ * becomes unreadable once the user is logged in.
+ *
+ * Only retry when all of these hold:
+ *   - Podkey added the header itself (never when the page set its own auth)
+ *   - the method is GET or HEAD (safe to repeat, no body to resend)
+ *   - the failure is a TypeError (network/CORS), not an abort
+ * Checks the error by name, not `instanceof`, so it holds across realms.
+ */
+export function shouldRetryUnsigned ({ method, signed, error, signal }) {
+  if (!signed) return false;
+  if (!/^(GET|HEAD)$/i.test(method || 'GET')) return false;
+  if (signal && signal.aborted) return false;
+  return !!error && error.name === 'TypeError';
+}
+
+/**
+ * A copy of fetch `init` without the Authorization header Podkey added, for
+ * the unsigned retry (#33). `hadHeaders` says whether the caller's init had a
+ * `headers` key before Podkey signed: if it didn't, the key is dropped again,
+ * so a Request input keeps its own headers (init.headers would override them).
+ * Never mutates `init`.
+ */
+export function withoutAuthorization (init, hadHeaders) {
+  const out = { ...init };
+  if (!hadHeaders) {
+    delete out.headers;
+    return out;
+  }
+  const headers = init.headers;
+  if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+    const copy = new Headers(headers);
+    copy.delete('authorization');
+    out.headers = copy;
+  } else if (Array.isArray(headers)) {
+    out.headers = headers.filter((entry) =>
+      !(Array.isArray(entry) && typeof entry[0] === 'string' && entry[0].toLowerCase() === 'authorization'));
+  } else if (headers && typeof headers === 'object') {
+    out.headers = {};
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() !== 'authorization') out.headers[key] = headers[key];
+    }
+  }
+  return out;
+}
