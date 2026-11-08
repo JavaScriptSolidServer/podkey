@@ -75,6 +75,36 @@
     return options.headers;
   }
 
+  function shouldRetryUnsigned ({ method, signed, error, signal }) {
+    if (!signed) return false;
+    if (!/^(GET|HEAD)$/i.test(method || 'GET')) return false;
+    if (signal && signal.aborted) return false;
+    return !!error && error.name === 'TypeError';
+  }
+
+  function withoutAuthorization (init, hadHeaders) {
+    const out = { ...init };
+    if (!hadHeaders) {
+      delete out.headers;
+      return out;
+    }
+    const headers = init.headers;
+    if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+      const copy = new Headers(headers);
+      copy.delete('authorization');
+      out.headers = copy;
+    } else if (Array.isArray(headers)) {
+      out.headers = headers.filter((entry) =>
+        !(Array.isArray(entry) && typeof entry[0] === 'string' && entry[0].toLowerCase() === 'authorization'));
+    } else if (headers && typeof headers === 'object') {
+      out.headers = {};
+      for (const key of Object.keys(headers)) {
+        if (key.toLowerCase() !== 'authorization') out.headers[key] = headers[key];
+      }
+    }
+    return out;
+  }
+
   function normalizeFetchCall (input, init) {
     if (typeof Request !== 'undefined' && input instanceof Request) {
       return {
@@ -173,12 +203,16 @@
     // own auth. If that auth fails with 401, the retry path below still
     // injects NIP-98. See issue #5.
     const pageSetAuth = fetchCallHasAuthorization(url, options);
+    // For the unsigned retry (#33): did the caller pass headers, and did we sign?
+    const hadHeaders = Object.prototype.hasOwnProperty.call(options, 'headers');
+    let signed = false;
 
     if (!pageSetAuth) {
       try {
         const authHeader = await getNip98AuthHeader(urlString, method, body);
         if (authHeader) {
           setAuthorizationOnOptions(options, authHeader);
+          signed = true;
           if (DEBUG) console.log('[Podkey] Added NIP-98 auth header');
         } else if (DEBUG) {
           console.log('[Podkey] No auth header (will retry on 401)');
@@ -190,7 +224,19 @@
       console.log('[Podkey] Page already set Authorization — skipping injection');
     }
 
-    const response = await originalFetch.call(this, url, options);
+    let response;
+    try {
+      response = await originalFetch.call(this, url, options);
+    } catch (error) {
+      // Our header made the request need a CORS preflight, and hosts that
+      // don't answer preflights (e.g. GitHub Pages) fail it outright. A public
+      // GET/HEAD the page could read on its own shouldn't break because the
+      // user is logged in: try once more, unsigned. See issue #33.
+      const signal = options.signal || (typeof Request !== 'undefined' && url instanceof Request ? url.signal : undefined);
+      if (!shouldRetryUnsigned({ method, signed, error, signal })) throw error;
+      if (DEBUG) console.log('[Podkey] Signed fetch failed (likely CORS preflight), retrying unsigned');
+      return originalFetch.call(this, url, withoutAuthorization(options, hadHeaders));
+    }
 
     // Handle 401 retry
     if (response.status === 401) {

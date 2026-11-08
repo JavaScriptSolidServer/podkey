@@ -5,6 +5,17 @@ All notable changes to Podkey will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Public files load again when you're logged in (#33).** Podkey's NIP-98
+  header makes a cross-origin request need a CORS preflight, and hosts that
+  don't answer preflights, such as GitHub Pages, failed the fetch outright. A
+  signed GET or HEAD that fails that way is now tried once more without
+  Podkey's header. Writes, aborts and requests where the page set its own
+  `Authorization` are never retried, and the 401 retry is unchanged.
+
 ## [0.0.11] - 2026-09-25
 
 ### Fixed
